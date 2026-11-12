@@ -24,7 +24,7 @@ function useMediaQuery(query: string): boolean {
  * (Firefox, older Safari) the scene reports an error and is removed, leaving
  * the plain dark band. It holds still for people who ask for reduced motion.
  */
-export function ShardsHero({ children, height = 260 }: { children: React.ReactNode; height?: number }) {
+export function ShardsHero({ children, height = 600 }: { children: React.ReactNode; height?: number }) {
   const [failed, setFailed] = useState(false);
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
