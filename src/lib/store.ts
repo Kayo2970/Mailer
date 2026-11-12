@@ -14,7 +14,7 @@ export const DATA_DIR = process.env.MAILER_DATA_DIR
   ? path.resolve(process.env.MAILER_DATA_DIR)
   : path.join(process.cwd(), 'data');
 
-export type CollectionKey = 'settings' | 'emails';
+export type CollectionKey = 'settings' | 'emails' | 'images';
 
 // Shared via globalThis: Next.js can load this module once per route chunk, and
 // separate copies would each have their own cache and mutex.

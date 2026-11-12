@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, FileUp, Paperclip, Send, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, FileUp, ImagePlus, Paperclip, Send, Trash2, X } from 'lucide-react';
 import { api, formatDateTime, type PublicEmailSettings } from '@/lib/client';
 import { applyMailMerge, findUnknownPlaceholders, parseRecipients } from '@/lib/mail-merge';
 import { ComposedAttachment, MAX_TOTAL_ATTACHMENT_BYTES, buildAttachmentNoticeLine, filesToAttachments, formatBytes } from '@/lib/email-attachments';
+import { imageHtmlSnippet, imageToken } from '@/lib/inline-images';
 import { ConfirmModal, EmailPreview, type Toast } from './ui';
+import { ImageLibraryModal } from './image-library';
 
 const SAMPLE = 'name, email, company\nAnanya Sharma, ananya@example.com, Acme\nRahul Verma, rahul@example.com, Globex';
 
@@ -26,6 +28,7 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
+  const [pickingImage, setPickingImage] = useState(false);
 
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -240,6 +243,7 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
           <div>
             <input ref={fileInputRef} type="file" multiple className="hidden" onChange={onFilesPicked} />
             <div className="flex flex-wrap items-center gap-2">
+              <button className="btn" onClick={() => setPickingImage(true)}><ImagePlus className="h-4 w-4" />Insert image</button>
               <button className="btn" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-4 w-4" />Attach files</button>
               {attachments.length > 0 && (
                 <>
@@ -252,6 +256,10 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
                 </>
               )}
             </div>
+            <p className="hint">
+              <strong>Insert image</strong> places a picture in the message at the cursor{bodyIsHtml ? '' : <> as <code>[[image:…]]</code> (add <code>|300</code> before the <code>]]</code> to set its width in pixels)</>}.
+              It is embedded in the e-mail itself, so recipients see it even after this app is closed.
+            </p>
             {attachments.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {attachments.map((a, i) => (
@@ -309,8 +317,19 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
           <div className="flex gap-2"><dt className="w-14 shrink-0 text-slate-500 dark:text-slate-400">Subject</dt><dd className="truncate font-semibold">{previewSubject || '—'}</dd></div>
         </dl>
         <EmailPreview subject={previewSubject} body={previewBody} bodyIsHtml={bodyIsHtml} className="h-[520px]" />
-        <p className="hint">This is the exact e-mail that will be sent. Change its look (banner, footer, colour) in Settings.</p>
+        <p className="hint">This is the exact e-mail that will be sent. Change its look (letterhead, logo, footer, colours) in Settings.</p>
       </section>
+
+      {pickingImage && (
+        <ImageLibraryModal
+          title="Insert image"
+          onClose={() => setPickingImage(false)}
+          onPick={(img) => {
+            setPickingImage(false);
+            insertAtCursor(bodyIsHtml ? imageHtmlSnippet(img.id) : `\n${imageToken(img.id)}\n`);
+          }}
+        />
+      )}
 
       {confirming && (
         <ConfirmModal

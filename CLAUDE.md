@@ -20,5 +20,6 @@ Lint, type-check, tests and build must all pass before pushing.
 - Every API route goes through `handle()` in `src/lib/api.ts` (local-only guard). The app has no login and can send mail from the user's account, so never add a route that bypasses it.
 - Secrets (`authPass`, `dkimPrivateKey`) never go to the browser: return `toPublicSettings()`, and treat an empty incoming value as "keep the stored one".
 - All sends go through the queue (`enqueueBatch`). The worker claims a row as `SENDING` before sending so a message can never go out twice; a row found `SENDING` at startup is marked failed, not re-sent.
-- `src/lib/mail-merge.ts` runs in both the browser and the server — keep it free of Node-only imports.
+- `src/lib/mail-merge.ts` and `src/lib/inline-images.ts` run in both the browser and the server — keep them free of Node-only imports.
+- Images in a message are always embedded (`<img src="cid:img_…@mailer">` plus an inline part with that Content-ID), never linked to this app or any URL of it — the recipient must see them after the app is closed. `enqueueBatch` copies the images a batch uses next to its attachments, so the queue never depends on the image library. Only previews swap `cid:` for data URIs.
 - Runtime data lives in `data/` (gitignored). Never commit it.

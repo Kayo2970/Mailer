@@ -15,6 +15,7 @@
  */
 import { NextResponse } from 'next/server';
 import { SettingsError } from './email-service';
+import { ImageError } from './images';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const extraHosts = (process.env.MAILER_ALLOWED_HOSTS || '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
@@ -59,7 +60,7 @@ export async function handle(request: Request, fn: () => Promise<Response>): Pro
     return await fn();
   } catch (err) {
     if (err instanceof ForbiddenError) return NextResponse.json({ error: err.message }, { status: 403 });
-    if (err instanceof SettingsError) return NextResponse.json({ error: err.message }, { status: 400 });
+    if (err instanceof SettingsError || err instanceof ImageError) return NextResponse.json({ error: err.message }, { status: 400 });
     if (err instanceof SyntaxError) return NextResponse.json({ error: 'The request was not valid JSON.' }, { status: 400 });
     console.error('[mailer] API error:', err);
     return NextResponse.json({ error: (err as Error)?.message || 'Something went wrong.' }, { status: 500 });
