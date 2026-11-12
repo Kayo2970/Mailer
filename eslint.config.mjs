@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored from React Bits (reactbits.dev/backgrounds/aero-shards) — kept byte-for-byte so it can be re-synced.
+    "src/components/AeroShards.jsx",
   ]),
 ]);
 

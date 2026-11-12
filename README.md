@@ -76,5 +76,6 @@ npm test
 | `src/lib/api.ts` | Local-only request guard for every API route |
 | `src/app/api/*` | `settings`, `test`, `preview`, `send`, `queue`, `logs`, `images` |
 | `src/components/*` | Compose, Queue/History and Settings screens, image library picker |
+| `src/components/AeroShards.jsx` | Animated banner scene, vendored unmodified from [React Bits](https://reactbits.dev/backgrounds/aero-shards) (needs WebGPU; `shards-hero.tsx` configures it and hides it where WebGPU is missing) |
 
 Every message goes through the queue: `/api/send` writes one `QUEUED` row per recipient to `data/emails.json`, and a single in-process worker (started from `src/instrumentation.ts`) claims and sends them in order.

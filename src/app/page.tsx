@@ -7,6 +7,7 @@ import { ComposeTab } from '@/components/compose-tab';
 import { LogList } from '@/components/log-list';
 import { SettingsTab } from '@/components/settings-tab';
 import { ToastView, type Toast } from '@/components/ui';
+import { ShardsHero } from '@/components/shards-hero';
 
 type Tab = 'compose' | 'queue' | 'history' | 'settings';
 
@@ -40,12 +41,13 @@ export default function MailerPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
+      <ShardsHero>
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600 text-white"><Mail className="h-5 w-5" /></div>
           <div>
-            <h1 className="text-lg font-bold leading-tight">Mailer</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <h1 className="text-lg font-bold leading-tight text-white">Mailer</h1>
+            <p className="text-xs text-slate-300">
               {settings?.configured ? <>Sending as <strong>{settings.fromEmail}</strong></> : 'Mail merge and dispatch, from your own computer'}
             </p>
           </div>
@@ -67,6 +69,7 @@ export default function MailerPage() {
           ))}
         </nav>
       </header>
+      </ShardsHero>
 
       {loadError ? (
         <p className="card text-sm text-rose-700 dark:text-rose-300">Could not load the app: {loadError}</p>
