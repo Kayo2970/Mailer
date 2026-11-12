@@ -1,0 +1,15 @@
+/node_modules
+/.next/
+/out/
+/build
+.DS_Store
+*.pem
+npm-debug.log*
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+
+# Runtime data: SMTP settings (including the password), the outbox/history
+# and queued attachments. Lives only on this machine — never commit it.
+/data/
