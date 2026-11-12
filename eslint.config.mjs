@@ -12,8 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Vendored from React Bits (reactbits.dev/backgrounds/aero-shards) — kept byte-for-byte so it can be re-synced.
+    // Vendored from React Bits (reactbits.dev) — kept byte-for-byte so they can be re-synced.
     "src/components/AeroShards.jsx",
+    "src/components/GhostFibers.jsx",
+    "src/components/SpecularButton.jsx",
+    "src/components/PillNav.jsx",
   ]),
 ]);
 

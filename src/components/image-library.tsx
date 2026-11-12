@@ -5,7 +5,7 @@ import { ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
 import { api, type PublicLibraryImage } from '@/lib/client';
 import { filesToAttachments, formatBytes } from '@/lib/email-attachments';
 import { MAX_IMAGE_BYTES } from '@/lib/inline-images';
-import { Modal } from './ui';
+import { ActionButton, Modal } from './ui';
 
 const ACCEPT = 'image/png,image/jpeg,image/gif';
 export const imageUrl = (id: string) => `/api/images/${id}`;
@@ -89,9 +89,9 @@ export function ImageLibraryModal({ title, onPick, onDeleted, onClose }: {
     <Modal title={title} onClose={onClose} wide>
       <div className="flex flex-wrap items-center gap-3">
         <input ref={inputRef} type="file" accept={ACCEPT} multiple className="hidden" onChange={onFiles} />
-        <button className="btn-primary" disabled={busy} onClick={() => inputRef.current?.click()}>
+        <ActionButton variant="primary" disabled={busy} onClick={() => inputRef.current?.click()}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Upload image
-        </button>
+        </ActionButton>
         <span className="text-xs text-slate-500 dark:text-slate-400">PNG, JPEG or GIF, up to {formatBytes(MAX_IMAGE_BYTES)} each.</span>
       </div>
       {error && <p className="mt-3 rounded-lg border border-rose-300 bg-rose-50 p-2 text-xs text-rose-900 dark:border-rose-500/40 dark:bg-rose-950 dark:text-rose-100">{error}</p>}

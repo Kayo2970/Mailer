@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ban, Inbox, Loader2, Paperclip, RotateCcw, Search, Send, Trash2 } from 'lucide-react';
 import { api, formatCountdown, formatDateTime, type EmailLog, type LogCounts, type LogRow } from '@/lib/client';
-import { ConfirmModal, HtmlFrame, Modal, type Toast } from './ui';
+import { ActionButton, ConfirmModal, HtmlFrame, Modal, type Toast } from './ui';
 
 type StatusFilter = 'ALL' | 'SENT' | 'FAILED' | 'CANCELLED';
 type QueueAction = 'send-now' | 'cancel' | 'retry' | 'delete';
@@ -109,14 +109,14 @@ export function LogList({ mode, onToast, onCounts }: { mode: 'queue' | 'history'
         <div className="flex flex-wrap gap-2">
           {mode === 'queue' && rows.length > 0 && (
             <>
-              <button className="btn" disabled={busy !== null} onClick={() => run('send-now', { all: true })}><Send className="h-4 w-4" />Send all now</button>
-              <button className="btn-danger" disabled={busy !== null} onClick={() => setConfirm({ action: 'cancel', scope: { all: true }, title: 'Cancel everything in the queue?', message: 'Every message still waiting will be cancelled and not sent. A message that is being sent right now cannot be stopped.', label: 'Cancel all' })}><Ban className="h-4 w-4" />Cancel all</button>
+              <ActionButton variant="primary" disabled={busy !== null} onClick={() => run('send-now', { all: true })}><Send className="h-4 w-4" />Send all now</ActionButton>
+              <ActionButton variant="danger" disabled={busy !== null} onClick={() => setConfirm({ action: 'cancel', scope: { all: true }, title: 'Cancel everything in the queue?', message: 'Every message still waiting will be cancelled and not sent. A message that is being sent right now cannot be stopped.', label: 'Cancel all' })}><Ban className="h-4 w-4" />Cancel all</ActionButton>
             </>
           )}
           {mode === 'history' && (
             <>
-              {hasFailed && <button className="btn" disabled={busy !== null} onClick={() => run('retry', { all: true })}><RotateCcw className="h-4 w-4" />Retry all failed</button>}
-              {rows.length > 0 && <button className="btn-danger" disabled={busy !== null} onClick={() => setConfirm({ action: 'delete', scope: { all: true }, title: 'Clear the history?', message: 'Every sent, failed and cancelled message will be removed from this list for good. Messages still in the queue are not affected.', label: 'Clear history' })}><Trash2 className="h-4 w-4" />Clear history</button>}
+              {hasFailed && <ActionButton disabled={busy !== null} onClick={() => run('retry', { all: true })}><RotateCcw className="h-4 w-4" />Retry all failed</ActionButton>}
+              {rows.length > 0 && <ActionButton variant="danger" disabled={busy !== null} onClick={() => setConfirm({ action: 'delete', scope: { all: true }, title: 'Clear the history?', message: 'Every sent, failed and cancelled message will be removed from this list for good. Messages still in the queue are not affected.', label: 'Clear history' })}><Trash2 className="h-4 w-4" />Clear history</ActionButton>}
             </>
           )}
         </div>
@@ -180,7 +180,7 @@ export function LogList({ mode, onToast, onCounts }: { mode: 'queue' | 'history'
 
       {loaded && total > rows.length && rows.length >= limit && (
         <div className="mt-3 flex justify-center">
-          <button className="btn" onClick={() => setLimit((l) => l + PAGE)}>Show more ({total - rows.length} more)</button>
+          <ActionButton onClick={() => setLimit((l) => l + PAGE)}>Show more ({total - rows.length} more)</ActionButton>
         </div>
       )}
 
@@ -201,9 +201,9 @@ export function LogList({ mode, onToast, onCounts }: { mode: 'queue' | 'history'
           {open.errorMessage && <p className="mb-4 whitespace-pre-wrap rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-500/40 dark:bg-rose-950 dark:text-rose-200">{open.errorMessage}</p>}
           <HtmlFrame html={open.bodyHtml} />
           <div className="mt-4 flex justify-end gap-2">
-            {open.status === 'FAILED' && <button className="btn" disabled={busy !== null} onClick={() => run('retry', { id: open.id })}><RotateCcw className="h-4 w-4" />Retry</button>}
-            {open.status === 'QUEUED' && <button className="btn-danger" disabled={busy !== null} onClick={() => run('cancel', { id: open.id })}><Ban className="h-4 w-4" />Cancel</button>}
-            {open.status !== 'QUEUED' && open.status !== 'SENDING' && <button className="btn-danger" disabled={busy !== null} onClick={() => run('delete', { id: open.id })}><Trash2 className="h-4 w-4" />Remove from history</button>}
+            {open.status === 'FAILED' && <ActionButton disabled={busy !== null} onClick={() => run('retry', { id: open.id })}><RotateCcw className="h-4 w-4" />Retry</ActionButton>}
+            {open.status === 'QUEUED' && <ActionButton variant="danger" disabled={busy !== null} onClick={() => run('cancel', { id: open.id })}><Ban className="h-4 w-4" />Cancel</ActionButton>}
+            {open.status !== 'QUEUED' && open.status !== 'SENDING' && <ActionButton variant="danger" disabled={busy !== null} onClick={() => run('delete', { id: open.id })}><Trash2 className="h-4 w-4" />Remove from history</ActionButton>}
           </div>
         </Modal>
       )}

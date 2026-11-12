@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp, Loader2, PlugZap, Save, XCircle } from 'lucide-react';
 import { api, type PublicEmailSettings } from '@/lib/client';
 import type { EmailProvider } from '@/lib/email-service';
-import { EmailPreview, type Toast } from './ui';
+import { ActionButton, EmailPreview, type Toast } from './ui';
 import { ImageField } from './image-library';
 
 type Form = Omit<PublicEmailSettings, 'authPass' | 'dkimPrivateKey'> & { authPass: string; dkimPrivateKey: string };
@@ -212,9 +212,9 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
           <p className="hint !mt-0">Signs in and sends one test message using what is in the form right now — you don&apos;t need to save first.</p>
           <div className="flex flex-wrap gap-2">
             <input className="input min-w-[12rem] flex-1" type="email" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} placeholder="Send the test to…" aria-label="Test recipient" />
-            <button className="btn" onClick={test} disabled={testing || !testRecipient.trim()}>
+            <ActionButton onClick={test} disabled={testing || !testRecipient.trim()}>
               {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />}Send test
-            </button>
+            </ActionButton>
           </div>
           {testResult && (
             <div className={`flex items-start gap-2 rounded-lg border p-3 text-xs ${testResult.success ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950 dark:text-emerald-100' : 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-950 dark:text-rose-100'}`}>
@@ -225,9 +225,9 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
         </section>
 
         <div className="sticky bottom-4 flex justify-end">
-          <button className="btn-primary shadow-lg" onClick={save} disabled={saving}>
+          <ActionButton variant="primary" size="md" className="shadow-lg" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save settings
-          </button>
+          </ActionButton>
         </div>
       </div>
 
