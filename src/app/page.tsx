@@ -9,6 +9,7 @@ import { SettingsTab } from '@/components/settings-tab';
 import { ToastView, type Toast } from '@/components/ui';
 import { GhostFibersBackground } from '@/components/ghost-fibers-bg';
 import PillNav, { type PillNavItem } from '@/components/PillNav';
+import { AppFooter, TermsGate } from '@/components/terms-gate';
 
 type Tab = 'compose' | 'queue' | 'history' | 'settings';
 
@@ -95,7 +96,7 @@ export default function MailerPage() {
   ];
 
   return (
-    <>
+    <TermsGate>
       <GhostFibersBackground />
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-6">
         <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
@@ -147,6 +148,7 @@ export default function MailerPage() {
 
         <ToastView toast={toast} onClose={closeToast} />
       </div>
-    </>
+      <AppFooter />
+    </TermsGate>
   );
 }

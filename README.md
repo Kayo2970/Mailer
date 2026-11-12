@@ -4,6 +4,8 @@ A local mail-merge and email dispatch app that runs on your own computer: connec
 
 The mail engine (SMTP providers, direct-send transport, queue, HTML template, mail merge, attachments) was extracted from the ERP dashboard's email module and made standalone.
 
+Created and developed by **Kayomarz Pavri**. Use of the app is subject to the [Terms and Conditions](TERMS.md), which the app shows on first start and asks you to accept (scroll to the end, then press **I Agree**). The text lives in `src/lib/terms.ts`; after editing it run `node --experimental-strip-types -e "import('./src/lib/terms.ts').then(m=>require('fs').writeFileSync('TERMS.md',m.termsAsMarkdown()))"` and bump `TERMS_VERSION` so everyone is asked again.
+
 ## Run it
 
 Needs [Node.js](https://nodejs.org) 20 or newer (Node.js 22.6+ is required to run `npm test` with `--experimental-strip-types`).
@@ -70,6 +72,8 @@ npm test           # node:test unit tests (Node 22.6+)
 | `src/lib/mail-merge.ts` | Recipient-list parsing and `{{placeholder}}` substitution (shared by browser and server) |
 | `src/lib/email-attachments.ts` | Client-side attachment encoding, notice text, and 15 MB limit checks |
 | `src/lib/store.ts` | JSON-file collections (`settings.json`, `emails.json`) with a per-collection write mutex |
+| `src/lib/terms.ts` | Terms and Conditions text and the credit line (also written to `TERMS.md`) |
+| `src/components/terms-gate.tsx` | Start-up agreement pop-up and the footer |
 | `src/lib/inline-images.ts` | How a message refers to an embedded image (`cid:` references, `[[image:…]]` tokens) — shared by browser and server |
 | `src/lib/images.ts` | The image library on disk, and turning `cid:` references into data URIs for on-screen previews |
 | `src/lib/file-storage.ts` | Queued attachments, embedded-image copies and the image library on disk |
