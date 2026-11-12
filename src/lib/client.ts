@@ -2,7 +2,8 @@
 import type { EmailLog, PublicEmailSettings } from './email-service';
 
 export type { EmailLog, PublicEmailSettings };
-export type LogRow = Omit<EmailLog, 'bodyHtml' | 'attachmentKeys'>;
+export type LogRow = Omit<EmailLog, 'bodyHtml' | 'attachmentKeys' | 'inlineImages'>;
+export type { PublicLibraryImage } from './images';
 
 export interface LogCounts { total: number; queued: number; sending: number; sent: number; failed: number; cancelled: number }
 

@@ -2,6 +2,7 @@
   "name": "mailer",
   "version": "0.1.0",
   "private": true,
+  "author": "Kayomarz Pavri",
   "description": "Local mail-merge and email dispatch app: connect an SMTP account, compose, personalise and send.",
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 3040",
@@ -15,7 +16,8 @@
     "next": "16.3.1",
     "nodemailer": "^9.0.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "vgpu": "^0.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

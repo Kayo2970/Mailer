@@ -14,6 +14,9 @@ import crypto from 'crypto';
 import { mutateCollection, readCollection } from './store';
 import { saveFile, readStoredFile, deleteStoredFilesForRecord } from './file-storage';
 import { DirectSendTransport } from './direct-smtp-transport';
+import { ImageError, deleteImage, loadImagesFor } from './images';
+import { cidFor, findImageIds, imageTag, imageTokensToHtml, isImageId, stripImageTokens } from './inline-images';
+import { MAX_TOTAL_ATTACHMENT_BYTES } from './email-attachments';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,6 +43,11 @@ export interface EmailLog {
   /** Storage keys of the batch's attachment files, kept on disk until the batch is finished. */
   attachmentKeys?: string[];
   attachmentFolder?: string;
+  /**
+   * The batch's own copies of the images embedded in the HTML (`cid:` references),
+   * stored in the same folder as the attachments. They are sent inside the message.
+   */
+  inlineImages?: Array<{ id: string; filename: string; contentType: string; storageKey: string }>;
   // A resolved sendMail() only means the SMTP server ACCEPTED the message, not
   // that it reached the inbox. These surface what the server actually said.
   errorMessage?: string;
@@ -56,7 +64,29 @@ export interface EmailTemplateSettings {
   tagline: string;
   footerText: string;
   accentColor: string;
+  // ── Letterhead. Image fields hold an image-library id ('' = none); the picture is embedded in every message. ──
+  /** Logo shown in the header band, above the banner name. */
+  logoImageId: string;
+  /** Displayed logo width in pixels. */
+  logoWidth: number;
+  /** Full-width picture across the top of the card (a letterhead strip). */
+  bannerImageId: string;
+  /** Full-width picture above the footer text (a footer strip or signature). */
+  footerImageId: string;
+  /** Show the banner name as text. Turn off when the logo already carries the name. */
+  showBrandName: boolean;
+  headerAlign: 'left' | 'center' | 'right';
+  headerBackground: string;
+  headerTextColor: string;
+  pageBackground: string;
+  /** Width of the message card in pixels. */
+  contentWidth: number;
+  fontFamily: 'sans' | 'serif';
+  /** Body text size in pixels. */
+  fontSize: number;
 }
+
+export const TEMPLATE_IMAGE_FIELDS = ['logoImageId', 'bannerImageId', 'footerImageId'] as const;
 
 export interface EmailSettings {
   // 'direct_send' is the built-in outbound engine (direct-smtp-transport.ts): the
@@ -104,7 +134,12 @@ export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   dkimDomain: '',
   dkimSelector: '',
   dkimPrivateKey: '',
-  template: { style: 'branded', brandName: '', tagline: '', footerText: '', accentColor: '#0284c7' },
+  template: {
+    style: 'branded', brandName: '', tagline: '', footerText: '', accentColor: '#0284c7',
+    logoImageId: '', logoWidth: 140, bannerImageId: '', footerImageId: '', showBrandName: true,
+    headerAlign: 'center', headerBackground: '#0f172a', headerTextColor: '#ffffff', pageBackground: '#f1f5f9',
+    contentWidth: 580, fontFamily: 'sans', fontSize: 14,
+  },
   sendDelayMinutes: 0,
   throttleSeconds: 2,
   unsubscribeFooter: true,
@@ -210,7 +245,19 @@ export function mergeSettings(current: EmailSettings, raw: unknown): EmailSettin
   }
   const footer = str(t.footerText, 600);
   if (footer !== undefined) next.template.footerText = footer;
-  if (typeof t.accentColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(t.accentColor)) next.template.accentColor = t.accentColor;
+  for (const key of ['accentColor', 'headerBackground', 'headerTextColor', 'pageBackground'] as const) {
+    const v = t[key];
+    if (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) next.template[key] = v;
+  }
+  for (const key of TEMPLATE_IMAGE_FIELDS) {
+    if (t[key] === '' || isImageId(t[key])) next.template[key] = t[key] as string;
+  }
+  if (typeof t.showBrandName === 'boolean') next.template.showBrandName = t.showBrandName;
+  if (t.headerAlign === 'left' || t.headerAlign === 'center' || t.headerAlign === 'right') next.template.headerAlign = t.headerAlign;
+  if (t.fontFamily === 'sans' || t.fontFamily === 'serif') next.template.fontFamily = t.fontFamily;
+  if (t.logoWidth !== undefined) next.template.logoWidth = Math.round(clampNumber(t.logoWidth, 24, 600, current.template.logoWidth));
+  if (t.contentWidth !== undefined) next.template.contentWidth = Math.round(clampNumber(t.contentWidth, 420, 800, current.template.contentWidth));
+  if (t.fontSize !== undefined) next.template.fontSize = Math.round(clampNumber(t.fontSize, 12, 20, current.template.fontSize));
 
   if (next.fromEmail && !/^[^\s@<>]+@[^\s@<>]+$/.test(next.fromEmail)) throw new SettingsError('"From" e-mail address is not valid.');
   if (next.replyTo && !/^[^\s@<>]+@[^\s@<>]+$/.test(next.replyTo)) throw new SettingsError('"Reply-To" address is not valid.');
@@ -226,6 +273,18 @@ export async function updateEmailSettings(raw: unknown): Promise<EmailSettings> 
   const updated = { ...mergeSettings(await getEmailSettings(), raw), updatedAt: new Date().toISOString() };
   await mutateCollection<EmailSettings>('settings', () => [updated]);
   return updated;
+}
+
+/** Deletes an image from the library and takes it off the letterhead if it was used there. */
+export async function removeLibraryImage(id: string): Promise<boolean> {
+  const removed = await deleteImage(id);
+  const settings = await getEmailSettings();
+  if (TEMPLATE_IMAGE_FIELDS.some((f) => settings.template[f] === id)) {
+    const template = { ...settings.template };
+    for (const f of TEMPLATE_IMAGE_FIELDS) if (template[f] === id) template[f] = '';
+    await mutateCollection<EmailSettings>('settings', () => [{ ...settings, template, updatedAt: new Date().toISOString() }]);
+  }
+  return removed;
 }
 
 // ── Transport ────────────────────────────────────────────────────────────────
@@ -365,6 +424,7 @@ export interface MessageContent {
 }
 
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const SERIF_FONT = "Georgia, 'Times New Roman', Times, serif";
 
 /**
  * The finished HTML of a message exactly as it will be sent — also used for the
@@ -378,33 +438,45 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
   // A complete HTML document from the sender is sent untouched.
   if (content.bodyIsHtml && /<html[\s>]/i.test(content.body)) return content.body;
 
+  // `[[image:…]]` tokens become <img> tags that point at the embedded copy (see inline-images.ts).
   const inner = content.bodyIsHtml
-    ? content.body
-    : `<div style="white-space: pre-wrap;">${textToHtml(content.body, t.accentColor)}</div>`;
+    ? imageTokensToHtml(content.body)
+    : `<div style="white-space: pre-wrap;">${imageTokensToHtml(textToHtml(content.body, t.accentColor))}</div>`;
   const head = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(content.subject)}</title></head>`;
+  const font = t.fontFamily === 'serif' ? SERIF_FONT : FONT;
 
   if (t.style === 'plain') {
-    return `<!DOCTYPE html><html lang="en">${head}<body style="margin: 0; padding: 16px; font-family: ${FONT}; font-size: 14px; line-height: 1.6; color: #1e293b;">${inner}</body></html>`;
+    return `<!DOCTYPE html><html lang="en">${head}<body style="margin: 0; padding: 16px; font-family: ${font}; font-size: ${t.fontSize}px; line-height: 1.6; color: #1e293b;">${inner}</body></html>`;
   }
 
   const brand = escapeHtml(t.brandName || settings.fromName || '');
-  const header = brand || t.tagline
-    ? `<div style="background-color: #0f172a; padding: 24px 32px; text-align: center;">
-        ${brand ? `<div style="display: inline-block; padding: 5px 12px; border: 1px solid ${t.accentColor}; border-radius: 6px;"><span style="color: #ffffff; font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">${brand}</span></div>` : ''}
-        ${t.tagline ? `<p style="color: #94a3b8; font-size: 12px; margin: 8px 0 0 0; font-weight: 500;">${escapeHtml(t.tagline)}</p>` : ''}
+  const brandText = t.showBrandName ? brand : '';
+  const strip = (id: string) => imageTag(id, { width: t.contentWidth, alt: brand, style: 'display: block;' });
+  // Block images are aligned with margins: text-align does not move a display:block element.
+  const logoMargin = t.headerAlign === 'left' ? '0 auto 0 0' : t.headerAlign === 'right' ? '0 0 0 auto' : '0 auto';
+
+  const banner = t.bannerImageId ? strip(t.bannerImageId) : '';
+  const band = t.logoImageId || brandText || t.tagline
+    ? `<div style="background-color: ${t.headerBackground}; padding: 24px 32px; text-align: ${t.headerAlign};">
+        ${t.logoImageId ? imageTag(t.logoImageId, { width: t.logoWidth, alt: brand, style: `display: block; margin: ${logoMargin};` }) : ''}
+        ${brandText ? `<div style="display: inline-block; padding: 5px 12px; border: 1px solid ${t.accentColor}; border-radius: 6px;${t.logoImageId ? ' margin-top: 14px;' : ''}"><span style="color: ${t.headerTextColor}; font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">${brandText}</span></div>` : ''}
+        ${t.tagline ? `<p style="color: ${t.headerTextColor}; opacity: 0.65; font-size: 12px; margin: 8px 0 0 0; font-weight: 500;">${escapeHtml(t.tagline)}</p>` : ''}
       </div>`
-    : `<div style="background-color: ${t.accentColor}; height: 6px; font-size: 0; line-height: 0;">&nbsp;</div>`;
-  const footer = t.footerText
-    ? `<div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 28px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6; white-space: pre-wrap;">${textToHtml(t.footerText, t.accentColor)}</div>`
     : '';
+  const header = banner || band
+    ? `${banner}${band}`
+    : `<div style="background-color: ${t.accentColor}; height: 6px; font-size: 0; line-height: 0;">&nbsp;</div>`;
+  const footer = `${t.footerImageId ? strip(t.footerImageId) : ''}${t.footerText
+    ? `<div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 28px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6; white-space: pre-wrap;">${textToHtml(t.footerText, t.accentColor)}</div>`
+    : ''}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
 ${head}
-<body style="background-color: #f1f5f9; margin: 0; padding: 24px 12px; font-family: ${FONT}; color: #1e293b;">
-  <div style="max-width: 580px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+<body style="background-color: ${t.pageBackground}; margin: 0; padding: 24px 12px; font-family: ${font}; color: #1e293b;">
+  <div style="max-width: ${t.contentWidth}px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
     ${header}
-    <div style="padding: 28px 32px; color: #334155; font-size: 14px; line-height: 1.65;">
+    <div style="padding: 28px 32px; color: #334155; font-size: ${t.fontSize}px; line-height: 1.65;">
       ${inner}
     </div>
     ${footer}
@@ -415,7 +487,15 @@ ${head}
 
 // ── Sending one message ──────────────────────────────────────────────────────
 
-type OutgoingAttachment = { filename: string; content: Buffer; contentType?: string };
+/** `cid` set = an image embedded in the HTML (sent as a related part), not a file the recipient sees as an attachment. */
+type OutgoingAttachment = { filename: string; content: Buffer; contentType?: string; cid?: string };
+
+const asInline = (image: { id: string; filename: string; contentType: string; content: Buffer }): OutgoingAttachment => ({
+  filename: image.filename,
+  content: image.content,
+  contentType: image.contentType,
+  cid: cidFor(image.id),
+});
 
 interface SendResult {
   status: 'SENT' | 'FAILED';
@@ -463,7 +543,9 @@ async function executeSmtpSend(
       replyTo: settings.replyTo || undefined,
       xMailer: false,
       headers,
-      attachments: message.attachments,
+      // Parts with a cid are embedded pictures: Nodemailer puts them in a multipart/related
+      // section beside the HTML, so they display in place and need nothing from this computer.
+      attachments: message.attachments?.map((a) => (a.cid ? { ...a, contentDisposition: 'inline' as const } : a)),
     });
 
     const rejected = (info.rejected || []).map(String);
@@ -500,14 +582,16 @@ export async function testEmailConnection(testRecipient: string, draft?: unknown
 
     const subject = 'Mailer test message';
     const body = `This is a test message from Mailer.\n\nYour mail settings work: ${settings.provider} via ${effectiveHost}:${effectivePort}, sending as ${settings.fromEmail}.\n\nSent ${new Date().toLocaleString()}`;
-    const result = await executeSmtpSend(settings, { to: testRecipient, subject, text: body, html: renderEmailHtml(settings, { subject, body }) });
+    const html = renderEmailHtml(settings, { subject, body });
+    const attachments = (await loadImagesFor(html)).map(asInline); // the letterhead images, so the test shows the real look
+    const result = await executeSmtpSend(settings, { to: testRecipient, subject, text: body, html, attachments });
     if (result.status === 'FAILED') return { success: false, message: result.errorMessage || 'The test message could not be sent.' };
     return {
       success: true,
       message: `The mail server accepted the test message for ${testRecipient} (it said: "${result.smtpResponse || 'OK'}"). Check that inbox — and its spam folder — to confirm it arrived.`,
     };
   } catch (err) {
-    if (err instanceof SettingsError) return { success: false, message: err.message };
+    if (err instanceof SettingsError || err instanceof ImageError) return { success: false, message: err.message };
     return { success: false, message: diagnoseSmtpFailure(err, settings.provider) };
   }
 }
@@ -534,38 +618,51 @@ export async function enqueueBatch(input: BatchInput): Promise<EmailLog[]> {
   const batchId = `b${now.toString(36)}${crypto.randomBytes(4).toString('hex')}`;
   const sendAfter = new Date(input.sendAt ? Math.max(input.sendAt.getTime(), now) : now + settings.sendDelayMinutes * 60_000).toISOString();
 
-  let attachmentKeys: string[] | undefined;
+  // Render first: the finished HTML says which images the batch embeds.
+  const rendered = input.messages.map((m) => renderEmailHtml(settings, { subject: m.subject, body: m.body, bodyIsHtml: input.bodyIsHtml }));
+  const images = await loadImagesFor(rendered);
   const files = input.attachments || [];
-  if (files.length > 0) {
-    // One copy per batch, not per recipient: a 200-recipient merge with a 5 MB PDF stores 5 MB.
-    attachmentKeys = [];
-    for (let i = 0; i < files.length; i++) {
-      attachmentKeys.push(await saveFile(ATTACHMENT_CATEGORY, batchId, i, files[i].filename, files[i].content));
-    }
+  const totalBytes = [...files, ...images].reduce((sum, f) => sum + f.content.length, 0);
+  if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
+    throw new ImageError('The attachments and embedded images are too large together (15 MB per message at most).');
+  }
+
+  // One copy per batch, not per recipient: a 200-recipient merge with a 5 MB PDF stores 5 MB.
+  // Images are copied too, so the batch no longer depends on the image library.
+  const attachmentKeys: string[] = [];
+  for (let i = 0; i < files.length; i++) {
+    attachmentKeys.push(await saveFile(ATTACHMENT_CATEGORY, batchId, i, files[i].filename, files[i].content));
+  }
+  const inlineImages: NonNullable<EmailLog['inlineImages']> = [];
+  for (let i = 0; i < images.length; i++) {
+    const { id, filename, contentType, content } = images[i];
+    inlineImages.push({ id, filename, contentType, storageKey: await saveFile(ATTACHMENT_CATEGORY, batchId, files.length + i, filename, content) });
   }
 
   const createdAt = new Date(now).toISOString();
-  const rows: EmailLog[] = input.messages.map((m, i) => ({
-    // Sortable: batches by time, messages within a batch in list order.
-    id: `em_${now.toString(36)}_${String(i).padStart(5, '0')}_${crypto.randomBytes(3).toString('hex')}`,
-    to: m.to,
-    subject: m.subject,
-    bodyText: input.bodyIsHtml ? htmlToText(m.body) : m.body,
-    bodyHtml: renderEmailHtml(settings, { subject: m.subject, body: m.body, bodyIsHtml: input.bodyIsHtml }),
-    status: 'QUEUED',
-    createdAt,
-    sendAfter,
-    batchId,
-    batchLabel: input.label || undefined,
-    bulk: input.messages.length > 1,
-    ...(attachmentKeys
-      ? {
-          attachmentKeys,
-          attachmentFolder: batchId,
-          attachmentsMeta: files.map((f) => ({ filename: f.filename, contentType: f.contentType })),
-        }
-      : {}),
-  }));
+  const rows: EmailLog[] = input.messages.map((m, i) => {
+    const used = new Set(findImageIds(rendered[i]));
+    const rowImages = inlineImages.filter((img) => used.has(img.id));
+    return {
+      // Sortable: batches by time, messages within a batch in list order.
+      id: `em_${now.toString(36)}_${String(i).padStart(5, '0')}_${crypto.randomBytes(3).toString('hex')}`,
+      to: m.to,
+      subject: m.subject,
+      bodyText: input.bodyIsHtml ? htmlToText(m.body) : stripImageTokens(m.body),
+      bodyHtml: rendered[i],
+      status: 'QUEUED',
+      createdAt,
+      sendAfter,
+      batchId,
+      batchLabel: input.label || undefined,
+      bulk: input.messages.length > 1,
+      ...(attachmentKeys.length > 0 || inlineImages.length > 0 ? { attachmentFolder: batchId } : {}),
+      ...(attachmentKeys.length > 0
+        ? { attachmentKeys, attachmentsMeta: files.map((f) => ({ filename: f.filename, contentType: f.contentType })) }
+        : {}),
+      ...(rowImages.length > 0 ? { inlineImages: rowImages } : {}),
+    };
+  });
 
   await mutateCollection<EmailLog>('emails', (current) => [...rows, ...current]);
   kickWorker();
@@ -573,16 +670,19 @@ export async function enqueueBatch(input: BatchInput): Promise<EmailLog[]> {
 }
 
 async function loadAttachments(log: EmailLog): Promise<OutgoingAttachment[] | undefined> {
-  if (!log.attachmentKeys?.length) return undefined;
   const out: OutgoingAttachment[] = [];
-  for (let i = 0; i < log.attachmentKeys.length; i++) {
+  for (const image of log.inlineImages || []) {
+    out.push(asInline({ ...image, content: await readStoredFile(image.storageKey) }));
+  }
+  for (let i = 0; i < (log.attachmentKeys?.length || 0); i++) {
+    if (!log.attachmentKeys) break;
     out.push({
       filename: log.attachmentsMeta?.[i]?.filename || `attachment-${i + 1}`,
       contentType: log.attachmentsMeta?.[i]?.contentType,
       content: await readStoredFile(log.attachmentKeys[i]),
     });
   }
-  return out;
+  return out.length > 0 ? out : undefined;
 }
 
 /** Deletes the attachment files of batches that have nothing left to send or retry. */
@@ -654,8 +754,8 @@ async function runWorker(): Promise<void> {
         const attachments = await loadAttachments(log);
         result = await executeSmtpSend(settings, { to: log.to, subject: log.subject, text: log.bodyText, html: log.bodyHtml, bulk: log.bulk, attachments });
       } catch (err) {
-        // A missing attachment file: never send the message without it.
-        result = { status: 'FAILED', errorMessage: `The attachment could not be read, so the message was not sent: ${(err as Error).message}` };
+        // A missing attachment or image file: never send the message without it.
+        result = { status: 'FAILED', errorMessage: `An attachment or embedded image could not be read, so the message was not sent: ${(err as Error).message}` };
       }
       await patchLog(log.id, {
         status: result.status,

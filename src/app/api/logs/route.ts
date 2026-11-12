@@ -48,7 +48,7 @@ export function GET(request: Request) {
       matched.sort((a, b) => (b.sentAt || b.createdAt).localeCompare(a.sentAt || a.createdAt) || a.id.localeCompare(b.id));
     }
 
-    const logs = matched.slice(offset, offset + limit).map((l) => ({ ...l, bodyHtml: undefined, attachmentKeys: undefined }));
+    const logs = matched.slice(offset, offset + limit).map((l) => ({ ...l, bodyHtml: undefined, attachmentKeys: undefined, inlineImages: undefined }));
     return NextResponse.json({ logs, total: matched.length, hasMore: offset + logs.length < matched.length, counts });
   });
 }

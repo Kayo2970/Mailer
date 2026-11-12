@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp, Loader2, PlugZap, Save, XCircle } from 'lucide-react';
 import { api, type PublicEmailSettings } from '@/lib/client';
 import type { EmailProvider } from '@/lib/email-service';
-import { EmailPreview, type Toast } from './ui';
+import { ActionButton, EmailPreview, type Toast } from './ui';
+import { ImageField } from './image-library';
 
 type Form = Omit<PublicEmailSettings, 'authPass' | 'dkimPrivateKey'> & { authPass: string; dkimPrivateKey: string };
 
@@ -23,6 +24,8 @@ const PROVIDER_HELP: Record<EmailProvider, React.ReactNode> = {
   local_relay: <>Hands mail to an SMTP server that accepts it without a sign-in — for example Postfix on this machine (<code>localhost</code>, port 25).</>,
   direct_send: <>Mailer looks up each recipient&apos;s mail server and delivers to it itself. This only works from a machine with a static public IP, outbound port 25 open, and SPF, DKIM and reverse-DNS (PTR) records for your domain — <strong>not from a home or office connection</strong>, where it will time out or land in spam. If in doubt, use an SMTP account.</>,
 };
+
+const GROUP = 'border-t border-slate-200 pt-4 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/10 dark:text-slate-400';
 
 export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmailSettings; onSaved: (s: PublicEmailSettings) => void; onToast: (t: Toast) => void }) {
   const [form, setForm] = useState<Form>(initial);
@@ -209,9 +212,9 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
           <p className="hint !mt-0">Signs in and sends one test message using what is in the form right now — you don&apos;t need to save first.</p>
           <div className="flex flex-wrap gap-2">
             <input className="input min-w-[12rem] flex-1" type="email" value={testRecipient} onChange={(e) => setTestRecipient(e.target.value)} placeholder="Send the test to…" aria-label="Test recipient" />
-            <button className="btn" onClick={test} disabled={testing || !testRecipient.trim()}>
+            <ActionButton onClick={test} disabled={testing || !testRecipient.trim()}>
               {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlugZap className="h-4 w-4" />}Send test
-            </button>
+            </ActionButton>
           </div>
           {testResult && (
             <div className={`flex items-start gap-2 rounded-lg border p-3 text-xs ${testResult.success ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950 dark:text-emerald-100' : 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-950 dark:text-rose-100'}`}>
@@ -222,13 +225,13 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
         </section>
 
         <div className="sticky bottom-4 flex justify-end">
-          <button className="btn-primary shadow-lg" onClick={save} disabled={saving}>
+          <ActionButton variant="primary" size="md" className="shadow-lg" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save settings
-          </button>
+          </ActionButton>
         </div>
       </div>
 
-      <section className="card self-start space-y-4 lg:sticky lg:top-5">
+      <section className="card self-start space-y-4">
         <div>
           <h2 className="text-sm font-bold">Email look</h2>
           <p className="hint !mt-0.5">Applied to every message you send. Messages already in the queue keep the look they were queued with.</p>
@@ -236,38 +239,90 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
         <div className="flex gap-2">
           {(['branded', 'plain'] as const).map((style) => (
             <button key={style} onClick={() => setTemplate('style', style)} aria-pressed={form.template.style === style} className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition ${form.template.style === style ? 'border-sky-500 bg-sky-50 dark:bg-sky-950' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}>
-              {style === 'branded' ? 'Branded card' : 'Plain message'}
+              {style === 'branded' ? 'Letterhead' : 'Plain message'}
             </button>
           ))}
         </div>
-        {form.template.style === 'branded' && (
-          <>
-            <div className="grid gap-4 sm:grid-cols-[1fr_6rem]">
-              <div>
-                <label className="label" htmlFor="brandName">Banner name</label>
-                <input id="brandName" className="input" value={form.template.brandName} onChange={(e) => setTemplate('brandName', e.target.value)} placeholder={form.fromName || 'Your organisation'} />
-              </div>
-              <div>
-                <label className="label" htmlFor="accent">Accent</label>
-                <input id="accent" type="color" className="input !h-[38px] !p-1" value={form.template.accentColor} onChange={(e) => setTemplate('accentColor', e.target.value)} />
-              </div>
-            </div>
-            <div>
-              <label className="label" htmlFor="tagline">Banner tagline <span className="font-normal text-slate-400">(optional)</span></label>
-              <input id="tagline" className="input" value={form.template.tagline} onChange={(e) => setTemplate('tagline', e.target.value)} />
-            </div>
-            <div>
-              <label className="label" htmlFor="footer">Footer <span className="font-normal text-slate-400">(optional)</span></label>
-              <textarea id="footer" className="input min-h-[60px]" value={form.template.footerText} onChange={(e) => setTemplate('footerText', e.target.value)} placeholder="Your organisation · address · why they are receiving this" />
-            </div>
-          </>
-        )}
         <EmailPreview
           subject="Sample subject"
           body={'Dear Ananya,\n\nThis is how your messages will look. Links like https://example.com become clickable.\n\nKind regards,\n' + (form.fromName || 'You')}
           settings={{ template: form.template, fromName: form.fromName }}
           className="h-[380px]"
         />
+        {form.template.style === 'branded' && (
+          <>
+            <h3 className={GROUP}>Header</h3>
+            <ImageField label="Logo" value={form.template.logoImageId} onChange={(id) => setTemplate('logoImageId', id)} hint="Shown in the header band. A PNG with a transparent background works best." />
+            {form.template.logoImageId && (
+              <div>
+                <label className="label" htmlFor="logoWidth">Logo width — {form.template.logoWidth}px</label>
+                <input id="logoWidth" type="range" min={24} max={Math.min(600, form.template.contentWidth - 64)} step={4} className="w-full" value={form.template.logoWidth} onChange={(e) => setTemplate('logoWidth', Number(e.target.value))} />
+              </div>
+            )}
+            <ImageField label="Banner image" value={form.template.bannerImageId} onChange={(id) => setTemplate('bannerImageId', id)} hint={`A full-width strip across the top — e.g. your printed letterhead's header, ${form.template.contentWidth * 2}px wide for sharp results.`} />
+            <div>
+              <label className="label" htmlFor="brandName">Name</label>
+              <input id="brandName" className="input" value={form.template.brandName} onChange={(e) => setTemplate('brandName', e.target.value)} placeholder={form.fromName || 'Your organisation'} />
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={form.template.showBrandName} onChange={(e) => setTemplate('showBrandName', e.target.checked)} />
+                Show the name as text in the header (turn off if your logo already says it)
+              </label>
+            </div>
+            <div>
+              <label className="label" htmlFor="tagline">Tagline <span className="font-normal text-slate-400">(optional)</span></label>
+              <input id="tagline" className="input" value={form.template.tagline} onChange={(e) => setTemplate('tagline', e.target.value)} />
+            </div>
+            <div>
+              <span className="label">Alignment</span>
+              <div className="flex gap-2">
+                {(['left', 'center', 'right'] as const).map((align) => (
+                  <button key={align} onClick={() => setTemplate('headerAlign', align)} aria-pressed={form.template.headerAlign === align} className={`flex-1 cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold capitalize transition ${form.template.headerAlign === align ? 'border-sky-500 bg-sky-50 dark:bg-sky-950' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}>
+                    {align === 'center' ? 'Centre' : align}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <h3 className={GROUP}>Colours</h3>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {([['headerBackground', 'Header'], ['headerTextColor', 'Header text'], ['accentColor', 'Accent'], ['pageBackground', 'Page']] as const).map(([key, name]) => (
+                <div key={key}>
+                  <label className="label" htmlFor={key}>{name}</label>
+                  <input id={key} type="color" className="input !h-[38px] !p-1" value={form.template[key]} onChange={(e) => setTemplate(key, e.target.value)} />
+                </div>
+              ))}
+            </div>
+
+            <h3 className={GROUP}>Footer</h3>
+            <ImageField label="Footer image" value={form.template.footerImageId} onChange={(id) => setTemplate('footerImageId', id)} hint="A full-width strip under the message — a signature block or your letterhead's footer." />
+            <div>
+              <label className="label" htmlFor="footer">Footer text <span className="font-normal text-slate-400">(optional)</span></label>
+              <textarea id="footer" className="input min-h-[60px]" value={form.template.footerText} onChange={(e) => setTemplate('footerText', e.target.value)} placeholder="Your organisation · address · why they are receiving this" />
+            </div>
+          </>
+        )}
+
+        <h3 className={GROUP}>Text</h3>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="label" htmlFor="fontFamily">Font</label>
+            <select id="fontFamily" className="input" value={form.template.fontFamily} onChange={(e) => setTemplate('fontFamily', e.target.value as Form['template']['fontFamily'])}>
+              <option value="sans">Sans-serif</option>
+              <option value="serif">Serif</option>
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="fontSize">Size (px)</label>
+            <input id="fontSize" className="input" type="number" min={12} max={20} value={form.template.fontSize} onChange={(e) => setTemplate('fontSize', Number(e.target.value))} />
+          </div>
+          {form.template.style === 'branded' && (
+            <div>
+              <label className="label" htmlFor="contentWidth">Width (px)</label>
+              <input id="contentWidth" className="input" type="number" min={420} max={800} step={10} value={form.template.contentWidth} onChange={(e) => setTemplate('contentWidth', Number(e.target.value))} />
+            </div>
+          )}
+        </div>
+        <p className="hint">Images are embedded in each e-mail, so they keep displaying after you close this app. Remember to press <strong>Save settings</strong>.</p>
       </section>
     </div>
   );

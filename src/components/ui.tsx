@@ -3,8 +3,64 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, X } from 'lucide-react';
 import { api } from '@/lib/client';
+import SpecularButton, { type SpecularButtonProps } from './SpecularButton';
 
 export type Toast = { type: 'success' | 'error'; text: string } | null;
+
+type ActionVariant = 'primary' | 'secondary' | 'danger';
+
+const VARIANT_PROPS: Record<ActionVariant, Pick<SpecularButtonProps, 'tint' | 'tintOpacity' | 'textColor' | 'lineColor' | 'baseColor'>> = {
+  primary: {
+    tint: '#0284c7',
+    tintOpacity: 0.92,
+    textColor: '#f5f5f5',
+    lineColor: '#ffffff',
+    baseColor: '#525252',
+  },
+  secondary: {
+    tint: '#0f172a',
+    tintOpacity: 0.88,
+    textColor: '#f5f5f5',
+    lineColor: '#ffffff',
+    baseColor: '#525252',
+  },
+  danger: {
+    tint: '#be123c',
+    tintOpacity: 0.9,
+    textColor: '#f5f5f5',
+    lineColor: '#ffe4e6',
+    baseColor: '#881337',
+  },
+};
+
+/**
+ * App button backed by React Bits <SpecularButton /> with high-contrast tints
+ * over light/dark cards and the configured specular rim highlight.
+ */
+export function ActionButton({
+  variant = 'secondary',
+  size = 'sm',
+  className = '',
+  ...rest
+}: SpecularButtonProps & { variant?: ActionVariant }) {
+  return (
+    <SpecularButton
+      size={size}
+      radius={40}
+      intensity={1}
+      idleIntensity={0.35}
+      shineSize={14}
+      shineFade={40}
+      thickness={1.5}
+      glow={1.4}
+      followMouse
+      proximity={250}
+      {...VARIANT_PROPS[variant]}
+      className={className}
+      {...rest}
+    />
+  );
+}
 
 export function ToastView({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   useEffect(() => {
@@ -49,10 +105,10 @@ export function ConfirmModal({ title, message, confirmLabel, danger, busy, onCon
     <Modal title={title} onClose={onClose}>
       <div className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{message}</div>
       <div className="mt-5 flex justify-end gap-2">
-        <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
-        <button className={danger ? 'btn-danger' : 'btn-primary'} onClick={onConfirm} disabled={busy}>
+        <ActionButton variant="secondary" onClick={onClose} disabled={busy}>Cancel</ActionButton>
+        <ActionButton variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={busy}>
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}{confirmLabel}
-        </button>
+        </ActionButton>
       </div>
     </Modal>
   );
