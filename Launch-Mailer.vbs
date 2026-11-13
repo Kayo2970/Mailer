@@ -41,3 +41,4 @@ End If
 
 ' Open Mailer in the user's default browser
 WshShell.Run "http://127.0.0.1:3040"
+
