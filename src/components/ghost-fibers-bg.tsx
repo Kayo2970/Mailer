@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { useTheme } from '@/lib/theme';
 import GhostFibers from './GhostFibers';
 
 function useMediaQuery(query: string): boolean {
@@ -18,16 +19,16 @@ function useMediaQuery(query: string): boolean {
 /**
  * Full-page animated WebGL2 background using the React Bits <GhostFibers /> scene.
  * Fixed behind the page content, adapts between lightMode and glowing dark mode
- * via prefers-color-scheme, and pauses when prefers-reduced-motion is enabled.
+ * via the app's active theme (light/dark/system), and pauses when prefers-reduced-motion is enabled.
  */
 export function GhostFibersBackground() {
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
-  const darkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  const { darkMode } = useTheme();
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-slate-100 dark:bg-slate-950" aria-hidden="true">
       <GhostFibers
-        glowColor="#ff6a1a"
+        glowColor="#f59e0b"
         layers={3}
         twist={0.9}
         threads={160}
@@ -36,8 +37,8 @@ export function GhostFibersBackground() {
         hoverEffect="focus"
         intro={true}
         mouseInteraction={true}
-        lineColor="#ffd9a8"
-        secondaryColor="#134eff"
+        lineColor="#ffe8a3"
+        secondaryColor="#b45309"
         gradient="across"
         volume={1.5}
         spread={1.9}

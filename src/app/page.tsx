@@ -1,29 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Clock, History, Loader2, Mail, PenLine, Settings } from 'lucide-react';
 import { api, type LogCounts, type PublicEmailSettings } from '@/lib/client';
+import { useTheme } from '@/lib/theme';
 import { ComposeTab } from '@/components/compose-tab';
 import { LogList } from '@/components/log-list';
 import { SettingsTab } from '@/components/settings-tab';
 import { ToastView, type Toast } from '@/components/ui';
 import { GhostFibersBackground } from '@/components/ghost-fibers-bg';
+import { ThemeToggle } from '@/components/theme-toggle';
 import PillNav, { type PillNavItem } from '@/components/PillNav';
 import { AppFooter, TermsGate } from '@/components/terms-gate';
 
 type Tab = 'compose' | 'queue' | 'history' | 'settings';
-
-function useDarkMode(): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      mq.addEventListener('change', onChange);
-      return () => mq.removeEventListener('change', onChange);
-    },
-    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
-    () => false
-  );
-}
 
 export default function MailerPage() {
   const [tab, setTab] = useState<Tab>('compose');
@@ -32,7 +22,7 @@ export default function MailerPage() {
   const [counts, setCounts] = useState<LogCounts | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const closeToast = useCallback(() => setToast(null), []);
-  const darkMode = useDarkMode();
+  const { darkMode } = useTheme();
 
   useEffect(() => {
     api<PublicEmailSettings>('/api/settings').then(setSettings, (err) => setLoadError((err as Error).message));
@@ -66,7 +56,7 @@ export default function MailerPage() {
       label: waiting ? (
         <span className="inline-flex items-center gap-1.5">
           Queue
-          <span className="rounded-full bg-sky-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+          <span className="rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-amber-950">
             {waiting}
           </span>
         </span>
@@ -98,10 +88,12 @@ export default function MailerPage() {
   return (
     <TermsGate>
       <GhostFibersBackground />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-6">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6">
         <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600 text-white"><Mail className="h-5 w-5" /></div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 text-amber-950 shadow-sm shadow-amber-500/25 dark:border dark:border-amber-400/70 dark:from-slate-900 dark:via-slate-900 dark:to-amber-950/70 dark:text-amber-300">
+              <Mail className="h-5 w-5" />
+            </div>
             <div>
               <h1 className="text-lg font-bold leading-tight text-slate-900 dark:text-white">Mailer</h1>
               <p className="text-xs text-slate-600 dark:text-slate-300">
@@ -109,25 +101,28 @@ export default function MailerPage() {
               </p>
             </div>
           </div>
-          <PillNav
-            logo={<Mail className="text-sky-600 dark:text-sky-400" />}
-            logoAlt="Mailer"
-            logoHref="#compose"
-            items={navItems}
-            activeHref={`#${tab}`}
-            onItemClick={(_item, index, event) => {
-              event.preventDefault();
-              const next = tabOrder[index];
-              if (next) setTab(next);
-            }}
-            theme={darkMode ? 'dark' : 'light'}
-            itemStyle="pill"
-            hoverEffect="fill"
-            indicator="dot"
-            highlightColor="#0284c7"
-            highlightTextColor="#ffffff"
-            ariaLabel="Sections"
-          />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <PillNav
+              logo={<Mail className="text-amber-600 dark:text-amber-400" />}
+              logoAlt="Mailer"
+              logoHref="#compose"
+              items={navItems}
+              activeHref={`#${tab}`}
+              onItemClick={(_item, index, event) => {
+                event.preventDefault();
+                const next = tabOrder[index];
+                if (next) setTab(next);
+              }}
+              theme={darkMode ? 'dark' : 'light'}
+              itemStyle="pill"
+              hoverEffect="fill"
+              indicator="dot"
+              highlightColor="linear-gradient(135deg, #fde047 0%, #f59e0b 52%, #d97706 100%)"
+              highlightTextColor="#1c1917"
+              ariaLabel="Sections"
+            />
+            <ThemeToggle />
+          </div>
         </header>
 
         {loadError ? (

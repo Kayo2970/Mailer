@@ -135,7 +135,7 @@ export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   dkimSelector: '',
   dkimPrivateKey: '',
   template: {
-    style: 'branded', brandName: '', tagline: '', footerText: '', accentColor: '#0284c7',
+    style: 'branded', brandName: '', tagline: '', footerText: '', accentColor: '#d97706',
     logoImageId: '', logoWidth: 140, bannerImageId: '', footerImageId: '', showBrandName: true,
     headerAlign: 'center', headerBackground: '#0f172a', headerTextColor: '#ffffff', pageBackground: '#f1f5f9',
     contentWidth: 580, fontFamily: 'sans', fontSize: 14,

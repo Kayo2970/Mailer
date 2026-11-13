@@ -11,17 +11,17 @@ type ActionVariant = 'primary' | 'secondary' | 'danger';
 
 const VARIANT_PROPS: Record<ActionVariant, Pick<SpecularButtonProps, 'tint' | 'tintOpacity' | 'textColor' | 'lineColor' | 'baseColor'>> = {
   primary: {
-    tint: '#0284c7',
+    tint: '#f59e0b',
     tintOpacity: 0.92,
-    textColor: '#f5f5f5',
-    lineColor: '#ffffff',
-    baseColor: '#525252',
+    textColor: '#1c1917',
+    lineColor: '#fef3c7',
+    baseColor: '#b45309',
   },
   secondary: {
     tint: '#0f172a',
     tintOpacity: 0.88,
     textColor: '#f5f5f5',
-    lineColor: '#ffffff',
+    lineColor: '#fde68a',
     baseColor: '#525252',
   },
   danger: {

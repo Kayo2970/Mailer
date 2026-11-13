@@ -49,7 +49,7 @@ function TermsDialog({ onAgree, onClose }: { onAgree?: () => void; onClose?: () 
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
       <div role="dialog" aria-modal="true" aria-labelledby="terms-title" className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-4 dark:border-white/10">
-          <ScrollText className="h-5 w-5 text-sky-600" />
+          <ScrollText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           <div>
             <h2 id="terms-title" className="text-base font-bold">Terms and Conditions</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">{APP_NAME} · created by {AUTHOR}</p>
@@ -106,7 +106,7 @@ export function AppFooter() {
         {CREDIT_LINE} Created and developed by <strong className="font-semibold text-slate-700 dark:text-slate-200">{AUTHOR}</strong>.
       </p>
       <p className="mt-1">
-        <button className="cursor-pointer font-semibold underline hover:text-sky-600" onClick={() => setOpen(true)}>Terms and Conditions</button>
+        <button className="cursor-pointer font-semibold underline hover:text-amber-600 dark:hover:text-amber-400" onClick={() => setOpen(true)}>Terms and Conditions</button>
       </p>
       {open && <TermsDialog onClose={() => setOpen(false)} />}
     </footer>

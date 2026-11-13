@@ -91,7 +91,7 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
                 key={p.id}
                 onClick={() => selectProvider(p.id)}
                 aria-pressed={form.provider === p.id}
-                className={`cursor-pointer rounded-xl border p-3 text-left transition ${form.provider === p.id ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-500/20 dark:bg-sky-950' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}
+                className={`cursor-pointer rounded-xl border p-3 text-left transition ${form.provider === p.id ? 'border-amber-500 bg-gradient-to-br from-amber-50 via-yellow-50/70 to-amber-100/70 ring-2 ring-amber-500/25 dark:from-amber-950/70 dark:via-slate-900 dark:to-yellow-950/40' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}
               >
                 <div className="text-sm font-semibold">{p.name}</div>
                 <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{p.blurb}</div>
@@ -238,7 +238,7 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
         </div>
         <div className="flex gap-2">
           {(['branded', 'plain'] as const).map((style) => (
-            <button key={style} onClick={() => setTemplate('style', style)} aria-pressed={form.template.style === style} className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition ${form.template.style === style ? 'border-sky-500 bg-sky-50 dark:bg-sky-950' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}>
+            <button key={style} onClick={() => setTemplate('style', style)} aria-pressed={form.template.style === style} className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition ${form.template.style === style ? 'border-amber-500 bg-gradient-to-br from-amber-50 via-yellow-50/70 to-amber-100/70 dark:from-amber-950/70 dark:via-slate-900 dark:to-yellow-950/40' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}>
               {style === 'branded' ? 'Letterhead' : 'Plain message'}
             </button>
           ))}
@@ -276,7 +276,7 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
               <span className="label">Alignment</span>
               <div className="flex gap-2">
                 {(['left', 'center', 'right'] as const).map((align) => (
-                  <button key={align} onClick={() => setTemplate('headerAlign', align)} aria-pressed={form.template.headerAlign === align} className={`flex-1 cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold capitalize transition ${form.template.headerAlign === align ? 'border-sky-500 bg-sky-50 dark:bg-sky-950' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}>
+                  <button key={align} onClick={() => setTemplate('headerAlign', align)} aria-pressed={form.template.headerAlign === align} className={`flex-1 cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold capitalize transition ${form.template.headerAlign === align ? 'border-amber-500 bg-gradient-to-br from-amber-50 via-yellow-50/70 to-amber-100/70 dark:from-amber-950/70 dark:via-slate-900 dark:to-yellow-950/40' : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'}`}>
                     {align === 'center' ? 'Centre' : align}
                   </button>
                 ))}

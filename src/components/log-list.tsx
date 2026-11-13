@@ -12,7 +12,7 @@ type Scope = { id: string } | { all: true };
 const PAGE = 50;
 const STATUS_STYLE: Record<EmailLog['status'], string> = {
   QUEUED: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
-  SENDING: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200',
+  SENDING: 'bg-gradient-to-r from-amber-200 via-yellow-200 to-amber-300 text-amber-950 dark:from-amber-900/70 dark:via-amber-950 dark:to-yellow-950/70 dark:text-amber-200',
   SENT: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200',
   FAILED: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200',
   CANCELLED: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200',
