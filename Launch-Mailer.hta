@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mailer Launcher</title>
+  <hta:application
+    id="mailerApp"
+    applicationname="MailerLauncher"
+    border="thin"
+    borderstyle="normal"
+    caption="yes"
+    maximizebutton="no"
+    minimizebutton="no"
+    showintaskbar="yes"
+    singleinstance="yes"
+    sysmenu="yes"
+    version="1.0"
+    windowstate="normal"
+  />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      background: #090d16;
+      color: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      text-align: center;
+      user-select: none;
+    }
+    .card {
+      background: #0f172a;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7), 0 0 25px rgba(245, 158, 11, 0.15);
+    }
+    .icon-badge {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 16px;
+      background: linear-gradient(135deg, #fde047 0%, #f59e0b 52%, #b45309 100%);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+    }
+    .icon-badge svg {
+      width: 28px;
+      height: 28px;
+      stroke: #1c1917;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 20px;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      margin: 12px auto;
+      border: 3px solid rgba(245, 158, 11, 0.2);
+      border-top-color: #f59e0b;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fef08a;
+      margin-top: 10px;
+    }
+    .footnote {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 16px;
+    }
+  </style>
+  <script>
+    window.resizeTo(440, 360);
+
+    var shell = null;
+    var fso = null;
+    var scriptDir = "";
+
+    try {
+      shell = new ActiveXObject("WScript.Shell");
+      fso = new ActiveXObject("Scripting.FileSystemObject");
+      // Get directory containing this .hta file
+      var pathname = window.location.pathname;
+      if (pathname.charAt(0) === '/' || pathname.charAt(0) === '\\') pathname = pathname.substr(1);
+      scriptDir = fso.GetParentFolderName(pathname);
+      if (scriptDir) shell.CurrentDirectory = scriptDir;
+    } catch (e) {
+      // Ignore if shell cannot be instantiated
+    }
+
+    function updateStatus(text) {
+      var el = document.getElementById("statusText");
+      if (el) el.innerText = text;
+    }
+
+    function checkServer(onSuccess, onFail) {
+      try {
+        var xhr = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
+        xhr.setTimeouts(800, 800, 800, 800);
+        xhr.open("GET", "http://127.0.0.1:3040/", false);
+        xhr.send();
+        if (xhr.status === 200 || xhr.status === 304) {
+          onSuccess();
+          return;
+        }
+      } catch (err) {}
+      onFail();
+    }
+
+    function launch() {
+      updateStatus("Checking server status...");
+
+      checkServer(function() {
+        updateStatus("Mailer is ready! Opening browser...");
+        openApp();
+      }, function() {
+        updateStatus("Starting background server (zero terminal)...");
+        try {
+          if (shell) {
+            // 0 = vbHide (completely hidden, no terminal/command prompt)
+            shell.Run("cmd /c npm run dev", 0, false);
+          }
+        } catch (e) {
+          updateStatus("Launching failed: " + e.message);
+          return;
+        }
+
+        var attempts = 0;
+        var maxAttempts = 35; // wait up to ~18 seconds
+        var poll = setInterval(function() {
+          attempts++;
+          updateStatus("Waiting for Mailer to warm up (" + attempts + "s)...");
+          checkServer(function() {
+            clearInterval(poll);
+            updateStatus("Started! Opening in browser...");
+            openApp();
+          }, function() {
+            if (attempts >= maxAttempts) {
+              clearInterval(poll);
+              updateStatus("Server taking longer than expected. Opening anyway...");
+              openApp();
+            }
+          });
+        }, 600);
+      });
+    }
+
+    function openApp() {
+      try {
+        if (shell) {
+          shell.Run("http://127.0.0.1:3040");
+        } else {
+          window.location.href = "http://127.0.0.1:3040";
+        }
+      } catch (e) {
+        window.location.href = "http://127.0.0.1:3040";
+      }
+      setTimeout(function() {
+        window.close();
+      }, 1200);
+    }
+
+    window.onload = function() {
+      setTimeout(launch, 300);
+    };
+  </script>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-badge">
+      <svg viewBox="0 0 24 24">
+        <rect width="20" height="16" x="2" y="4" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      </svg>
+    </div>
+    <h1>Mailer</h1>
+    <div class="subtitle">Personal email dispatcher & mail merge</div>
+    <div class="spinner"></div>
+    <div id="statusText" class="status">Initializing...</div>
+    <div class="footnote">Launches silently in the background without any command prompt.</div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mailer Launcher</title>
+  <link rel="icon" type="image/svg+xml" href="public/icon-light.svg">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(15, 23, 42, 0.95);
+      --gold-1: #fde047;
+      --gold-2: #f59e0b;
+      --gold-3: #b45309;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      overflow-x: hidden;
+      position: relative;
+    }
+    /* Subtle background glow */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .launcher-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 440px;
+      background: var(--card-bg);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 24px;
+      padding: 36px 32px;
+      text-align: center;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.8), 0 0 40px rgba(245, 158, 11, 0.1);
+      backdrop-filter: blur(12px);
+    }
+    .icon-badge {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 20px;
+      background: linear-gradient(135deg, var(--gold-1) 0%, var(--gold-2) 52%, var(--gold-3) 100%);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.35);
+    }
+    .icon-badge svg {
+      width: 34px;
+      height: 34px;
+      stroke: #1c1917;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 6px;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .status-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .spinner {
+      width: 30px;
+      height: 30px;
+      margin: 0 auto 12px;
+      border: 3px solid rgba(245, 158, 11, 0.2);
+      border-top-color: var(--gold-2);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fef08a;
+    }
+    .status-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn-gold {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, var(--gold-1) 0%, var(--gold-2) 52%, var(--gold-3) 100%);
+      color: #1c1917;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    }
+    .btn-gold:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+    }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .tip {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .tip strong {
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="launcher-card">
+    <div class="icon-badge">
+      <svg viewBox="0 0 24 24">
+        <rect width="20" height="16" x="2" y="4" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      </svg>
+    </div>
+    <h1>Mailer</h1>
+    <p class="subtitle">Mail merge and dispatch, from your own computer</p>
+
+    <div class="status-box">
+      <div id="spinner" class="spinner"></div>
+      <div id="statusText" class="status-text">Connecting to Mailer…</div>
+      <div id="statusSub" class="status-sub">Checking http://127.0.0.1:3040/</div>
+    </div>
+
+    <div class="actions">
+      <a id="openBtn" href="http://127.0.0.1:3040" class="btn-gold" style="display: none;">
+        Open Mailer
+      </a>
+      <a id="silentBtn" href="Launch-Mailer.vbs" class="btn-secondary">
+        ⚡ 1-Click Silent Start (Launch-Mailer.vbs)
+      </a>
+      <a href="Launch-Mailer.hta" class="btn-secondary">
+        🖥️ HTML App Launcher (Launch-Mailer.hta)
+      </a>
+    </div>
+
+    <p class="tip">
+      <strong>No command line needed:</strong> Double-clicking <code>Launch-Mailer.vbs</code> or <code>Launch-Mailer.hta</code> starts Mailer completely in the background with zero terminal windows.
+    </p>
+  </div>
+
+  <script>
+    const APP_URL = 'http://127.0.0.1:3040';
+    let isConnected = false;
+    let pollCount = 0;
+
+    // Check if running inside an ActiveX-capable context (IE / HTA)
+    try {
+      if (window.ActiveXObject || "ActiveXObject" in window) {
+        const shell = new ActiveXObject("WScript.Shell");
+        shell.Run("cmd /c npm run dev", 0, false);
+      }
+    } catch (e) {
+      // Modern browsers will catch and ignore
+    }
+
+    async function checkServer() {
+      pollCount++;
+      try {
+        // Use no-cors or fetch root
+        const res = await fetch(APP_URL + '/', { method: 'GET', mode: 'no-cors', cache: 'no-store' });
+        // If fetch succeeds (even opaque in no-cors), the server is active on 3040
+        onServerOnline();
+        return;
+      } catch (err) {
+        // Fetch failed, server not answering yet
+      }
+
+      if (!isConnected) {
+        if (pollCount > 3) {
+          document.getElementById('statusText').innerText = 'Starting background server…';
+          document.getElementById('statusSub').innerText = 'Please wait a moment while Mailer warms up';
+          document.getElementById('openBtn').style.display = 'inline-flex';
+        }
+        setTimeout(checkServer, 1000);
+      }
+    }
+
+    function onServerOnline() {
+      if (isConnected) return;
+      isConnected = true;
+      document.getElementById('spinner').style.borderTopColor = '#22c55e';
+      document.getElementById('statusText').innerText = 'Connected! Redirecting to Mailer…';
+      document.getElementById('statusText').style.color = '#86efac';
+      document.getElementById('statusSub').innerText = 'Opening ' + APP_URL;
+      document.getElementById('openBtn').style.display = 'inline-flex';
+      
+      // Auto-redirect into the app
+      setTimeout(() => {
+        window.location.replace(APP_URL);
+      }, 500);
+    }
+
+    // Start polling immediately
+    checkServer();
+  </script>
+</body>
+</html>
