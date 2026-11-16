@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   FileText,
   ImagePlus,
+  Loader2,
   Monitor,
   Paperclip,
   PenLine,
@@ -244,6 +245,27 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
     setPreviewIndex(0);
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
     onToast({ type: 'success', text: 'Draft discarded.' });
+  };
+
+  const onAttemptSend = () => {
+    if (sending) return;
+    if (problem) {
+      onToast({ type: 'error', text: problem });
+      if (!settings?.configured) {
+        onOpenSettings();
+      } else if (recipients.length === 0) {
+        setRecipientInputMode('grid');
+      } else if (!subject.trim()) {
+        subjectRef.current?.focus();
+      } else if (!body.trim()) {
+        if (mode === 'rich') richEditorRef.current?.focus();
+        else plainBodyRef.current?.focus();
+      } else if (scheduleInvalid) {
+        setShowDelivery(true);
+      }
+      return;
+    }
+    setConfirming(true);
   };
 
   const send = async () => {
@@ -641,8 +663,20 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
           {/* Bottom Gmail/Outlook-style action bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/90 px-4 py-3 dark:border-white/10 dark:bg-slate-800/70">
             <div className="flex flex-wrap items-center gap-2">
-              <ActionButton variant="primary" size="md" disabled={Boolean(problem) || sending} onClick={() => setConfirming(true)}>
-                {scheduleDate ? <CalendarClock className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+              <ActionButton
+                variant="primary"
+                size="md"
+                disabled={sending}
+                onClick={onAttemptSend}
+                title={problem ? `Cannot send: ${problem}` : scheduleDate ? 'Schedule sending' : 'Send emails'}
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : scheduleDate ? (
+                  <CalendarClock className="h-4 w-4" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
                 {scheduleDate
                   ? recipients.length > 1 ? `Schedule ${recipients.length}` : 'Schedule'
                   : recipients.length > 1 ? `Send ${recipients.length} emails` : 'Send'}
@@ -667,7 +701,16 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
                 {scheduleDate ? `Scheduled` : 'Options'}
               </button>
             </div>
-            {problem && <span className="text-xs text-slate-500 dark:text-slate-400">{problem}</span>}
+            {problem && (
+              <button
+                type="button"
+                onClick={onAttemptSend}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-amber-800 transition hover:bg-amber-100/60 dark:text-amber-300 dark:hover:bg-amber-950/50"
+              >
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>{problem}</span>
+              </button>
+            )}
           </div>
         </section>
       </div>
