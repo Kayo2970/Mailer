@@ -22,6 +22,23 @@ test('tokens are dropped from the plain-text part', () => {
   assert.equal(stripImageTokens(`Hi\n\n${imageToken(A)}\n\nBye`), 'Hi\n\nBye');
 });
 
+test('supports image placement alignment and width in tokens and HTML', () => {
+  const tokenCenter = imageToken(A, 420, 'center');
+  assert.equal(tokenCenter, `[[image:${A}|420|center]]`);
+
+  const tokenRight = imageToken(B, undefined, 'right');
+  assert.equal(tokenRight, `[[image:${B}|right]]`);
+
+  const html = imageTokensToHtml(`Hello\n${tokenCenter}\n${tokenRight}`);
+  assert.match(html, /margin: 8px auto;/);
+  assert.match(html, /data-mailer-align="center"/);
+  assert.match(html, /width="420"/);
+  assert.match(html, /margin: 8px 0 8px auto;/);
+  assert.match(html, /data-mailer-align="right"/);
+
+  assert.equal(stripImageTokens(`Start\n\n${tokenCenter}\n\nEnd`), 'Start\n\nEnd');
+});
+
 test('findImageIds lists each referenced image once', () => {
   const html = imageTag(A) + imageTag(B) + imageTag(A) + '<img src="cid:other@elsewhere">';
   assert.deepEqual(findImageIds(html), [A, B]);

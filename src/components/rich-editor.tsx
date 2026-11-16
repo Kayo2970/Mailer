@@ -21,12 +21,14 @@ import {
   Underline,
   Undo2,
   Unlink,
+  Trash2,
 } from 'lucide-react';
+import type { ImageAlign } from '@/lib/inline-images';
 import { editorHtmlToEmailHtml, emailHtmlToEditorHtml, isRichHtmlEmpty, sanitizeEditorHtml } from '@/lib/compose-editor';
 
 export interface RichEditorHandle {
   insertText: (text: string) => void;
-  insertImage: (id: string) => void;
+  insertImage: (id: string, opts?: { width?: number; align?: ImageAlign }) => void;
   focus: () => void;
 }
 
@@ -119,6 +121,10 @@ export const RichEmailEditor = forwardRef<RichEditorHandle, RichEmailEditorProps
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('https://');
   const [linkText, setLinkText] = useState('');
+  const selectedImgRef = useRef<HTMLImageElement | null>(null);
+  const [hasSelectedImg, setHasSelectedImg] = useState(false);
+  const [imgAlign, setImgAlign] = useState<ImageAlign>('center');
+  const [imgWidth, setImgWidth] = useState<string>('full');
 
   const saveSelection = useCallback(() => {
     const el = editorRef.current;
@@ -245,15 +251,82 @@ export const RichEmailEditor = forwardRef<RichEditorHandle, RichEmailEditorProps
         const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
         insertHtmlAtCursor(safe);
       },
-      insertImage: (id: string) => {
+      insertImage: (id: string, opts?: { width?: number; align?: ImageAlign }) => {
+        const width = opts?.width ? Math.min(2000, Math.max(16, Math.round(opts.width))) : undefined;
+        const align = opts?.align || 'center';
+        let margin = 'margin: 8px 0;';
+        if (align === 'center') margin = 'margin: 8px auto;';
+        else if (align === 'right') margin = 'margin: 8px 0 8px auto;';
+        else if (align === 'left') margin = 'margin: 8px auto 8px 0;';
+        const widthAttr = width ? ` width="${width}"` : '';
+        const widthStyle = width ? `width: ${width}px; ` : '';
         insertHtmlAtCursor(
-          `<img src="/api/images/${id}" data-mailer-image="${id}" alt="" style="display: block; max-width: 100%; height: auto; border: 0; margin: 8px 0;"><p><br></p>`
+          `<img src="/api/images/${id}" data-mailer-image="${id}" data-mailer-align="${align}" alt=""${widthAttr} style="${widthStyle}max-width: 100%; height: auto; border: 0; display: block; ${margin}"><p><br></p>`
         );
       },
       focus: () => editorRef.current?.focus(),
     }),
     [insertHtmlAtCursor, restoreSelection]
   );
+
+  const onEditorClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target && target.tagName === 'IMG' && target.hasAttribute('data-mailer-image')) {
+      const img = target as HTMLImageElement;
+      selectedImgRef.current = img;
+      setHasSelectedImg(true);
+      const alignAttr = (img.getAttribute('data-mailer-align') as ImageAlign) || 'center';
+      setImgAlign(alignAttr);
+      const w = img.getAttribute('width') || '';
+      setImgWidth(w || 'full');
+    } else {
+      selectedImgRef.current = null;
+      setHasSelectedImg(false);
+    }
+  };
+
+  const updateSelectedImgAlign = (newAlign: ImageAlign) => {
+    const img = selectedImgRef.current;
+    if (!img) return;
+    img.setAttribute('data-mailer-align', newAlign);
+    img.style.display = 'block';
+    if (newAlign === 'center') {
+      img.style.marginLeft = 'auto';
+      img.style.marginRight = 'auto';
+    } else if (newAlign === 'right') {
+      img.style.marginLeft = 'auto';
+      img.style.marginRight = '0';
+    } else {
+      img.style.marginLeft = '0';
+      img.style.marginRight = 'auto';
+    }
+    setImgAlign(newAlign);
+    emitChange();
+  };
+
+  const updateSelectedImgWidth = (newWidthPreset: string) => {
+    const img = selectedImgRef.current;
+    if (!img) return;
+    if (newWidthPreset === 'full') {
+      img.removeAttribute('width');
+      img.style.width = '';
+    } else {
+      const num = Number(newWidthPreset);
+      img.setAttribute('width', String(num));
+      img.style.width = `${num}px`;
+    }
+    setImgWidth(newWidthPreset);
+    emitChange();
+  };
+
+  const removeSelectedImg = () => {
+    const img = selectedImgRef.current;
+    if (!img) return;
+    img.remove();
+    selectedImgRef.current = null;
+    setHasSelectedImg(false);
+    emitChange();
+  };
 
   const openLinkPopover = () => {
     saveSelection();
@@ -438,6 +511,76 @@ export const RichEmailEditor = forwardRef<RichEditorHandle, RichEmailEditorProps
         </div>
       )}
 
+      {hasSelectedImg && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300 bg-amber-50/90 px-3 py-1.5 text-xs text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/60 dark:text-amber-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-[11px] text-amber-900 dark:text-amber-300">Image:</span>
+            {/* Alignment */}
+            <div className="inline-flex rounded-md border border-amber-200 bg-white p-0.5 dark:border-white/10 dark:bg-slate-900" role="group" aria-label="Image alignment">
+              <button
+                type="button"
+                title="Align left"
+                aria-label="Align left"
+                onClick={() => updateSelectedImgAlign('left')}
+                className={`cursor-pointer rounded p-1 transition ${imgAlign === 'left' ? 'bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
+              >
+                <AlignLeft className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                title="Align center"
+                aria-label="Align center"
+                onClick={() => updateSelectedImgAlign('center')}
+                className={`cursor-pointer rounded p-1 transition ${imgAlign === 'center' ? 'bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
+              >
+                <AlignCenter className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                title="Align right"
+                aria-label="Align right"
+                onClick={() => updateSelectedImgAlign('right')}
+                className={`cursor-pointer rounded p-1 transition ${imgAlign === 'right' ? 'bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
+              >
+                <AlignRight className="h-3 w-3" />
+              </button>
+            </div>
+
+            {/* Sizing */}
+            <div className="inline-flex rounded-md border border-amber-200 bg-white p-0.5 text-[11px] dark:border-white/10 dark:bg-slate-900" role="group" aria-label="Image size">
+              {(['240', '420', 'full'] as const).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => updateSelectedImgWidth(w)}
+                  className={`cursor-pointer rounded px-1.5 py-0.5 font-medium transition ${imgWidth === w ? 'bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}
+                >
+                  {w === 'full' ? 'Full' : `${w}px`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={removeSelectedImg}
+              className="inline-flex cursor-pointer items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100 dark:text-rose-400 dark:hover:bg-rose-950"
+            >
+              <Trash2 className="h-3 w-3" />
+              Remove
+            </button>
+            <button
+              type="button"
+              onClick={() => { selectedImgRef.current = null; setHasSelectedImg(false); }}
+              className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-700 dark:text-slate-400"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         {empty && (
           <div className="pointer-events-none absolute left-3.5 top-3 text-sm text-slate-400">
@@ -451,6 +594,7 @@ export const RichEmailEditor = forwardRef<RichEditorHandle, RichEmailEditorProps
           role="textbox"
           aria-multiline="true"
           aria-label="Message body"
+          onClick={onEditorClick}
           onInput={emitChange}
           onBlur={() => { saveSelection(); emitChange(); }}
           onFocus={() => { onFocus?.(); refreshActive(); }}

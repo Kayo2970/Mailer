@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyMailMerge, findUnknownPlaceholders, parseRecipients } from '../mail-merge.ts';
+import { applyMailMerge, csvToGrid, findUnknownPlaceholders, gridToCsv, parseRecipients } from '../mail-merge.ts';
 
 test('header row: every column becomes a placeholder', () => {
   const { recipients, columns, skipped } = parseRecipients('Name, E-mail, Company Name\nAnanya, ananya@example.com, Acme\n"Verma, Rahul",rahul@example.com,"Globex ""India"""');
@@ -36,4 +36,28 @@ test('placeholders: case/space-insensitive, unknown ones left as typed', () => {
 
 test('a value containing braces is not expanded a second time', () => {
   assert.equal(applyMailMerge('{{name}}', { name: '{{email}}', email: 'a@x.com' }), '{{email}}');
+});
+
+test('gridToCsv and csvToGrid handle round-trip serialization and spreadsheet formats', () => {
+  const cols = ['email', 'name', 'company'];
+  const rows = [
+    ['ananya@example.com', 'Ananya Sharma', 'Acme'],
+    ['rahul@example.com', 'Verma, Rahul', 'Globex "India"'],
+  ];
+  const csv = gridToCsv(cols, rows);
+  assert.match(csv, /^email,name,company/m);
+  assert.match(csv, /"Verma, Rahul"/);
+  assert.match(csv, /"Globex ""India"""/);
+
+  const parsed = csvToGrid(csv);
+  assert.deepEqual(parsed.columns, ['email', 'name', 'company']);
+  assert.equal(parsed.rows.length, 2);
+  assert.equal(parsed.rows[0][0], 'ananya@example.com');
+  assert.equal(parsed.rows[1][1], 'Verma, Rahul');
+  assert.equal(parsed.rows[1][2], 'Globex "India"');
+
+  const tabPasted = 'email\tname\nalice@x.com\tAlice';
+  const gridFromTab = csvToGrid(tabPasted);
+  assert.deepEqual(gridFromTab.columns, ['email', 'name']);
+  assert.deepEqual(gridFromTab.rows, [['alice@x.com', 'Alice']]);
 });

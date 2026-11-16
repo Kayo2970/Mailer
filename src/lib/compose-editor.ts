@@ -3,12 +3,12 @@
  * converting between rich editor HTML, email-safe cid: HTML, and plain text,
  * plus normalizing quick-typed comma-separated recipient entries.
  */
-import { IMAGE_ID_PATTERN, imageTag, imageToken, stripImageTokens } from './inline-images.ts';
+import { IMAGE_ID_PATTERN, type ImageAlign, imageTag, imageToken, parseImageTokenArgs, stripImageTokens } from './inline-images.ts';
 import { isValidEmail } from './mail-merge.ts';
 
 const CID_SRC_RE = new RegExp(`cid:(${IMAGE_ID_PATTERN.source.slice(1, -1)})@mailer`, 'g');
 const API_IMG_SRC_RE = new RegExp(`/api/images/(${IMAGE_ID_PATTERN.source.slice(1, -1)})`, 'g');
-const TOKEN_RE = /\[\[image:(img_[a-z0-9]{8,40})(?:\|(\d{1,4}))?\]\]/g;
+const TOKEN_RE = /\[\[image:(img_[a-z0-9]{8,40})(?:\|(\d{1,4}|left|center|right))?(?:\|(\d{1,4}|left|center|right))?\]\]/g;
 
 function escapeAttr(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -29,20 +29,35 @@ export function sanitizeEditorHtml(html: string): string {
     .replace(/javascript:/gi, '');
 }
 
+/** Extracts an `<img>` tag's attribute value if present. */
+function readAttr(attrs: string, name: string): string | undefined {
+  const m = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i').exec(attrs);
+  return m ? (m[1] ?? m[2]) : undefined;
+}
+
+/** Detects image alignment ('left' | 'center' | 'right') from attributes or inline styles. */
+export function readAlign(attrs: string): ImageAlign | undefined {
+  const explicit = readAttr(attrs, 'data-mailer-align');
+  if (explicit === 'left' || explicit === 'center' || explicit === 'right') return explicit;
+  const style = readAttr(attrs, 'style') || '';
+  if (/margin:\s*8px\s+auto/i.test(style) || /margin-left:\s*auto\s*;\s*margin-right:\s*auto/i.test(style)) return 'center';
+  if (/margin:\s*8px\s+0\s+8px\s+auto/i.test(style) || (style.includes('margin-left: auto') && !style.includes('margin-right: auto'))) return 'right';
+  if (/margin:\s*8px\s+auto\s+8px\s+0/i.test(style) || (style.includes('margin-right: auto') && !style.includes('margin-left: auto'))) return 'left';
+  return undefined;
+}
+
 /** Converts email HTML (`cid:` images) into editor-displayable HTML (`/api/images/<id>`). */
 export function emailHtmlToEditorHtml(html: string): string {
   const safe = sanitizeEditorHtml(html);
   return safe.replace(
     /<img\b([^>]*?)src=["']cid:(img_[a-z0-9]{8,40})@mailer["']([^>]*)>/gi,
-    (_m, before: string, id: string, after: string) =>
-      `<img${before}src="/api/images/${id}" data-mailer-image="${id}"${after}>`
+    (_m, before: string, id: string, after: string) => {
+      const full = `${before} ${after}`;
+      const align = readAlign(full);
+      const alignAttr = align && !full.includes('data-mailer-align=') ? ` data-mailer-align="${align}"` : '';
+      return `<img${before}src="/api/images/${id}" data-mailer-image="${id}"${alignAttr}${after}>`;
+    }
   );
-}
-
-/** Extracts an `<img>` tag's attribute value if present. */
-function readAttr(attrs: string, name: string): string | undefined {
-  const m = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i').exec(attrs);
-  return m ? (m[1] ?? m[2]) : undefined;
 }
 
 /** Converts editor HTML (`/api/images/<id>`) into clean email-safe HTML (`cid:` images). */
@@ -59,7 +74,8 @@ export function editorHtmlToEmailHtml(html: string): string {
       const widthRaw = readAttr(attrs, 'width');
       const width = widthRaw && /^\d+$/.test(widthRaw) ? Number(widthRaw) : undefined;
       const alt = escapeAttr(readAttr(attrs, 'alt') || '');
-      return imageTag(id, { width, alt, style: 'display: block;' });
+      const align = readAlign(attrs);
+      return imageTag(id, { width, alt, align });
     })
     .replace(/^(?:<p><br><\/p>|<br\s*\/?>|\s)+|(?:<p><br><\/p>|<br\s*\/?>|\s)+$/gi, '');
 
@@ -90,9 +106,10 @@ export function plainTextToHtml(text: string): string {
     .split(/\n{2,}/)
     .map((block) => {
       const escaped = escapeHtmlBasic(block)
-        .replace(TOKEN_RE, (_m, id: string, width?: string) =>
-          imageTag(id, { width: width ? Number(width) : undefined, style: 'display: block; margin: 8px 0;' })
-        )
+        .replace(TOKEN_RE, (_m, id: string, p1?: string, p2?: string) => {
+          const { width, align } = parseImageTokenArgs(p1, p2);
+          return imageTag(id, { width, align });
+        })
         .replace(/\n/g, '<br>');
       return `<p>${escaped}</p>`;
     })
@@ -112,7 +129,8 @@ export function htmlToPlainText(html: string, opts: { preserveImageTokens?: bool
     if (!id || !opts.preserveImageTokens) return '';
     const widthRaw = readAttr(attrs, 'width');
     const width = widthRaw && /^\d+$/.test(widthRaw) ? Number(widthRaw) : undefined;
-    return `\n${imageToken(id, width)}\n`;
+    const align = readAlign(attrs);
+    return `\n${imageToken(id, width, align)}\n`;
   });
 
   const text = withImages

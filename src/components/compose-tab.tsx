@@ -7,8 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FileCode2,
+  FileSpreadsheet,
   FileText,
-  FileUp,
   ImagePlus,
   Monitor,
   Paperclip,
@@ -29,6 +29,7 @@ import { htmlToPlainText, normalizeRecipientEntry, plainTextToHtml } from '@/lib
 import { ActionButton, ConfirmModal, EmailPreview, type Toast } from './ui';
 import { ImageLibraryModal } from './image-library';
 import { RichEmailEditor, type RichEditorHandle } from './rich-editor';
+import { ExcelGridEditor } from './excel-grid-editor';
 
 const SAMPLE = 'name, email, company\nAnanya Sharma, ananya@example.com, Acme\nRahul Verma, rahul@example.com, Globex';
 const DRAFT_KEY = 'mailer:compose-draft:v1';
@@ -55,7 +56,7 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
 }) {
   const [recipientsText, setRecipientsText] = useState('');
   const [quickTo, setQuickTo] = useState('');
-  const [showBulkTo, setShowBulkTo] = useState(false);
+  const [recipientInputMode, setRecipientInputMode] = useState<'grid' | 'quick' | 'csv'>('grid');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [mode, setMode] = useState<EditorMode>('rich');
@@ -78,7 +79,6 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
   const subjectRef = useRef<HTMLInputElement>(null);
   const plainBodyRef = useRef<HTMLTextAreaElement>(null);
   const richEditorRef = useRef<RichEditorHandle>(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Restore draft from localStorage after mount so SSR and first client render match.
@@ -213,19 +213,6 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
     const filtered = lines.filter((line) => !line.toLowerCase().includes(target));
     setRecipientsText(filtered.join('\n').trim());
     setPreviewIndex(0);
-  };
-
-  const onCsvPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      setRecipientsText(await file.text());
-      setShowBulkTo(true);
-      setPreviewIndex(0);
-    } catch {
-      onToast({ type: 'error', text: `Could not read ${file.name}.` });
-    }
   };
 
   const onFilesPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,117 +369,125 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
             </div>
 
             {/* To */}
-            <div className="px-4 py-2">
+            <div className="px-4 py-2.5">
               <div className="flex items-start gap-3">
-                <span className="mt-1.5 w-14 shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">To</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {!showBulkTo && recipients.slice(0, 6).map((r) => (
-                      <span
-                        key={r.email}
-                        className="inline-flex max-w-[14rem] items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs text-slate-800 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
-                      >
-                        <span className="truncate">{r.fields.name ? `${r.fields.name} <${r.email}>` : r.email}</span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${r.email}`}
-                          onClick={() => removeRecipient(r.email)}
-                          className="cursor-pointer text-slate-400 hover:text-rose-600"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                    {!showBulkTo && recipients.length > 6 && (
+                <span className="mt-1 w-14 shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">To</span>
+                <div className="min-w-0 flex-1 space-y-2">
+                  {/* Mode switcher tabs */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 text-xs dark:border-white/10 dark:bg-slate-800" role="group" aria-label="Recipient input mode">
                       <button
                         type="button"
-                        onClick={() => setShowBulkTo(true)}
-                        className="cursor-pointer rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 px-2 py-0.5 text-xs font-semibold text-amber-900 hover:from-amber-200 hover:to-yellow-200 dark:from-amber-950 dark:to-yellow-950/80 dark:text-amber-200"
+                        onClick={() => setRecipientInputMode('grid')}
+                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition ${
+                          recipientInputMode === 'grid'
+                            ? 'bg-white text-emerald-950 shadow-xs dark:bg-slate-900 dark:text-emerald-400'
+                            : 'text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-700'
+                        }`}
                       >
-                        +{recipients.length - 6} more
+                        <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        Spreadsheet Grid
                       </button>
-                    )}
-                    {!showBulkTo && (
-                      <input
-                        type="text"
-                        value={quickTo}
-                        onChange={(e) => setQuickTo(e.target.value)}
-                        onBlur={commitQuickTo}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ',' || (e.key === 'Tab' && quickTo.trim())) {
-                            e.preventDefault();
-                            commitQuickTo();
-                          } else if (e.key === 'Backspace' && !quickTo && recipients.length > 0) {
-                            removeRecipient(recipients[recipients.length - 1].email);
-                          }
-                        }}
-                        onPaste={(e) => {
-                          const pasted = e.clipboardData.getData('text');
-                          if (pasted.includes('\n') || pasted.includes('\t') || pasted.includes(',') || pasted.includes(';')) {
-                            e.preventDefault();
-                            appendRecipientLines(pasted);
-                            if (pasted.includes('\n') || pasted.includes('\t')) setShowBulkTo(true);
-                          }
-                        }}
-                        placeholder={recipients.length === 0 ? 'Add recipients (email or Name <email>, press Enter) or paste CSV…' : 'Add another…'}
-                        aria-label="Add recipient"
-                        className="min-w-[12rem] flex-1 bg-transparent py-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
-                      />
-                    )}
-                  </div>
-
-                  {/* Quick To controls */}
-                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input ref={csvInputRef} type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" className="hidden" onChange={onCsvPicked} />
                       <button
                         type="button"
-                        onClick={() => setShowBulkTo((v) => !v)}
-                        className="inline-flex cursor-pointer items-center gap-1 font-semibold text-slate-600 hover:text-amber-600 dark:text-slate-300 dark:hover:text-amber-400"
+                        onClick={() => setRecipientInputMode('quick')}
+                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition ${
+                          recipientInputMode === 'quick'
+                            ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                            : 'text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-700'
+                        }`}
                       >
-                        <Table2 className="h-3 w-3" />
-                        {showBulkTo ? 'Hide CSV / table' : `CSV / Bulk list${recipients.length ? ` (${recipients.length})` : ''}`}
+                        <Table2 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                        Quick Chips
                       </button>
-                      <span>·</span>
                       <button
                         type="button"
-                        onClick={() => csvInputRef.current?.click()}
-                        className="inline-flex cursor-pointer items-center gap-1 font-semibold text-slate-600 hover:text-amber-600 dark:text-slate-300 dark:hover:text-amber-400"
+                        onClick={() => setRecipientInputMode('csv')}
+                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition ${
+                          recipientInputMode === 'csv'
+                            ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                            : 'text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-700'
+                        }`}
                       >
-                        <FileUp className="h-3 w-3" />
-                        Upload CSV
+                        <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        Raw CSV
                       </button>
-                      {!recipientsText && (
-                        <>
-                          <span>·</span>
-                          <button
-                            type="button"
-                            onClick={() => { setRecipientsText(SAMPLE); setShowBulkTo(true); setPreviewIndex(0); }}
-                            className="cursor-pointer font-semibold text-amber-700 hover:underline dark:text-amber-300"
-                          >
-                            Load sample list
-                          </button>
-                        </>
-                      )}
-                      {recipientsText && (
-                        <>
-                          <span>·</span>
-                          <button
-                            type="button"
-                            onClick={() => { setRecipientsText(''); setQuickTo(''); setPreviewIndex(0); }}
-                            className="cursor-pointer font-semibold text-rose-600 hover:underline dark:text-rose-400"
-                          >
-                            Clear list
-                          </button>
-                        </>
-                      )}
                     </div>
-                    <span className="text-[11px] text-slate-400">Each recipient receives a separate email</span>
+
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {recipients.length > 0 ? (
+                        <span>
+                          <strong>{recipients.length}</strong> recipient{recipients.length === 1 ? '' : 's'} · separate emails
+                        </span>
+                      ) : (
+                        <span>Each recipient receives their own email</span>
+                      )}
+                    </span>
                   </div>
 
-                  {/* Expanded CSV / Spreadsheet editor & merge table */}
-                  {showBulkTo && (
-                    <div className="mt-2.5 space-y-2.5">
+                  {/* Mode 1: Spreadsheet Grid (Excel) */}
+                  {recipientInputMode === 'grid' && (
+                    <ExcelGridEditor
+                      value={recipientsText}
+                      onChange={(newCsv) => {
+                        setRecipientsText(newCsv);
+                        setPreviewIndex(0);
+                      }}
+                      onToast={onToast}
+                    />
+                  )}
+
+                  {/* Mode 2: Quick Chips Entry */}
+                  {recipientInputMode === 'quick' && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-white/10 dark:bg-slate-900">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {recipients.map((r) => (
+                          <span
+                            key={r.email}
+                            className="inline-flex max-w-[14rem] items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs text-slate-800 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200"
+                          >
+                            <span className="truncate">{r.fields.name ? `${r.fields.name} <${r.email}>` : r.email}</span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${r.email}`}
+                              onClick={() => removeRecipient(r.email)}
+                              className="cursor-pointer text-slate-400 hover:text-rose-600"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                        <input
+                          type="text"
+                          value={quickTo}
+                          onChange={(e) => setQuickTo(e.target.value)}
+                          onBlur={commitQuickTo}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ',' || (e.key === 'Tab' && quickTo.trim())) {
+                              e.preventDefault();
+                              commitQuickTo();
+                            } else if (e.key === 'Backspace' && !quickTo && recipients.length > 0) {
+                              removeRecipient(recipients[recipients.length - 1].email);
+                            }
+                          }}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text');
+                            if (pasted.includes('\n') || pasted.includes('\t') || pasted.includes(',') || pasted.includes(';')) {
+                              e.preventDefault();
+                              appendRecipientLines(pasted);
+                            }
+                          }}
+                          placeholder={recipients.length === 0 ? 'Type an email or Name <email> and press Enter…' : 'Add another…'}
+                          aria-label="Add recipient"
+                          className="min-w-[14rem] flex-1 bg-transparent py-1 text-xs text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode 3: Raw CSV / Textarea */}
+                  {recipientInputMode === 'csv' && (
+                    <div className="space-y-2">
                       <textarea
                         className="input min-h-[110px] font-mono text-xs"
                         value={recipientsText}
@@ -504,35 +499,11 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
                       <p className="hint !mt-1">
                         One recipient per line, or paste spreadsheet rows. A header row with an <code>email</code> column turns every other column into a <code>{'{{placeholder}}'}</code>.
                       </p>
-                      {recipients.length > 0 && (
-                        <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-white/10">
-                          <div className="flex items-center justify-between bg-slate-50 px-3 py-1.5 text-xs font-semibold dark:bg-slate-800">
-                            <span>{recipients.length} recipient{recipients.length === 1 ? '' : 's'}</span>
-                            {recipients.length > 5 && <span className="font-normal text-slate-500 dark:text-slate-400">showing the first 5</span>}
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                              <thead>
-                                <tr className="border-t border-slate-200 text-slate-500 dark:border-white/10 dark:text-slate-400">
-                                  {columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-1.5 font-semibold">{c}</th>)}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {recipients.slice(0, 5).map((r) => (
-                                  <tr key={r.email} className="border-t border-slate-200 dark:border-white/10">
-                                    {columns.map((c) => <td key={c} className="max-w-[14rem] truncate whitespace-nowrap px-3 py-1.5">{r.fields[c]}</td>)}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
 
                   {skipped.length > 0 && (
-                    <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950 dark:text-amber-100">
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950 dark:text-amber-100">
                       <p className="font-semibold">{skipped.length} line{skipped.length === 1 ? '' : 's'} will be skipped:</p>
                       <ul className="mt-1 list-inside list-disc">
                         {skipped.slice(0, 5).map((s) => <li key={s.line}>Line {s.line}: {s.reason}</li>)}
@@ -851,16 +822,17 @@ export function ComposeTab({ settings, onToast, onQueued, onOpenSettings }: {
 
       {pickingImage && (
         <ImageLibraryModal
-          title="Insert image"
+          title="Insert image into message"
+          showPlacementOptions={true}
           onClose={() => setPickingImage(false)}
-          onPick={(img) => {
+          onPick={(img, options) => {
             setPickingImage(false);
             if (mode === 'rich') {
-              richEditorRef.current?.insertImage(img.id);
+              richEditorRef.current?.insertImage(img.id, options);
             } else if (mode === 'html') {
-              insertIntoPlainBody(imageHtmlSnippet(img.id));
+              insertIntoPlainBody(imageHtmlSnippet(img.id, options));
             } else {
-              insertIntoPlainBody(`\n${imageToken(img.id)}\n`);
+              insertIntoPlainBody(`\n${imageToken(img.id, options?.width, options?.align)}\n`);
             }
           }}
         />
