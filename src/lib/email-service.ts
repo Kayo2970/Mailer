@@ -17,6 +17,7 @@ import { DirectSendTransport } from './direct-smtp-transport';
 import { ImageError, deleteImage, loadImagesFor } from './images';
 import { cidFor, findImageIds, imageTag, imageTokensToHtml, isImageId, stripImageTokens } from './inline-images';
 import { MAX_TOTAL_ATTACHMENT_BYTES } from './email-attachments';
+import { DEFAULT_SOCIAL_PLATFORM_LABELS, getSocialSvg, type SocialLink } from './client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ export interface EmailLog {
 }
 
 export type EmailProvider = 'gmail' | 'outlook' | 'custom' | 'local_relay' | 'direct_send';
+export type { SocialLink };
 
 export interface EmailTemplateSettings {
   /** 'branded' = header banner + card + footer; 'plain' = just the message, like a hand-written e-mail. */
@@ -84,6 +86,18 @@ export interface EmailTemplateSettings {
   fontFamily: 'sans' | 'serif';
   /** Body text size in pixels. */
   fontSize: number;
+  /** 'simple' = subtle light footer bar; 'match_header' = footer styled in the same style as the header band */
+  footerStyle?: 'simple' | 'match_header';
+  /** Optional custom background color for the footer band. */
+  footerBackground?: string;
+  /** Optional custom text color for the footer band. */
+  footerTextColor?: string;
+  /** Optional custom background color for the social link buttons ('' = auto/theme). */
+  socialButtonBg?: string;
+  /** Optional custom text/icon color for the social link buttons ('' = auto/theme). */
+  socialButtonText?: string;
+  /** Social media links displayed in the footer */
+  socialLinks?: SocialLink[];
 }
 
 export const TEMPLATE_IMAGE_FIELDS = ['logoImageId', 'bannerImageId', 'footerImageId'] as const;
@@ -139,6 +153,12 @@ export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
     logoImageId: '', logoWidth: 140, bannerImageId: '', footerImageId: '', showBrandName: true,
     headerAlign: 'center', headerBackground: '#0f172a', headerTextColor: '#ffffff', pageBackground: '#f1f5f9',
     contentWidth: 580, fontFamily: 'sans', fontSize: 14,
+    footerStyle: 'simple',
+    footerBackground: '#f8fafc',
+    footerTextColor: '#64748b',
+    socialButtonBg: '',
+    socialButtonText: '',
+    socialLinks: [],
   },
   sendDelayMinutes: 0,
   throttleSeconds: 2,
@@ -245,9 +265,9 @@ export function mergeSettings(current: EmailSettings, raw: unknown): EmailSettin
   }
   const footer = str(t.footerText, 600);
   if (footer !== undefined) next.template.footerText = footer;
-  for (const key of ['accentColor', 'headerBackground', 'headerTextColor', 'pageBackground'] as const) {
+  for (const key of ['accentColor', 'headerBackground', 'headerTextColor', 'pageBackground', 'footerBackground', 'footerTextColor', 'socialButtonBg', 'socialButtonText'] as const) {
     const v = t[key];
-    if (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) next.template[key] = v;
+    if (typeof v === 'string' && (/^#[0-9a-fA-F]{6}$/.test(v) || v === '')) next.template[key] = v;
   }
   for (const key of TEMPLATE_IMAGE_FIELDS) {
     if (t[key] === '' || isImageId(t[key])) next.template[key] = t[key] as string;
@@ -258,6 +278,25 @@ export function mergeSettings(current: EmailSettings, raw: unknown): EmailSettin
   if (t.logoWidth !== undefined) next.template.logoWidth = Math.round(clampNumber(t.logoWidth, 24, 600, current.template.logoWidth));
   if (t.contentWidth !== undefined) next.template.contentWidth = Math.round(clampNumber(t.contentWidth, 420, 800, current.template.contentWidth));
   if (t.fontSize !== undefined) next.template.fontSize = Math.round(clampNumber(t.fontSize, 12, 20, current.template.fontSize));
+  if (t.footerStyle === 'simple' || t.footerStyle === 'match_header') {
+    next.template.footerStyle = t.footerStyle;
+  }
+  if (Array.isArray(t.socialLinks)) {
+    next.template.socialLinks = t.socialLinks
+      .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+      .map((item) => {
+        let url = typeof item.url === 'string' ? item.url.trim().slice(0, 500) : '';
+        if (url && !/^https?:\/\//i.test(url) && !url.startsWith('mailto:')) {
+          url = `https://${url}`;
+        }
+        return {
+          platform: typeof item.platform === 'string' ? item.platform.trim().slice(0, 40) : 'custom',
+          url,
+          label: typeof item.label === 'string' ? item.label.trim().slice(0, 60) : undefined,
+        };
+      })
+      .filter((item) => item.url.length > 0 && /^https?:\/\//i.test(item.url));
+  }
 
   if (next.fromEmail && !/^[^\s@<>]+@[^\s@<>]+$/.test(next.fromEmail)) throw new SettingsError('"From" e-mail address is not valid.');
   if (next.replyTo && !/^[^\s@<>]+@[^\s@<>]+$/.test(next.replyTo)) throw new SettingsError('"Reply-To" address is not valid.');
@@ -466,9 +505,56 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
   const header = banner || band
     ? `${banner}${band}`
     : `<div style="background-color: ${t.accentColor}; height: 6px; font-size: 0; line-height: 0;">&nbsp;</div>`;
-  const footer = `${t.footerImageId ? strip(t.footerImageId) : ''}${t.footerText
-    ? `<div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 28px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6; white-space: pre-wrap;">${textToHtml(t.footerText, t.accentColor)}</div>`
-    : ''}`;
+  const isHeaderMatch = t.footerStyle === 'match_header';
+  const effectiveFooterBg = t.footerBackground || (isHeaderMatch ? t.headerBackground : '#f8fafc');
+  const effectiveFooterText = t.footerTextColor || (isHeaderMatch ? t.headerTextColor : '#64748b');
+
+  const defaultButtonBg = isHeaderMatch
+    ? 'rgba(255, 255, 255, 0.08)'
+    : (effectiveFooterBg === '#f8fafc' ? '#ffffff' : 'rgba(255, 255, 255, 0.15)');
+  const defaultButtonText = isHeaderMatch
+    ? (t.footerTextColor || t.headerTextColor)
+    : (t.footerTextColor || '#475569');
+
+  const effectiveButtonBg = t.socialButtonBg || defaultButtonBg;
+  const effectiveButtonText = t.socialButtonText || defaultButtonText;
+
+  const validSocials = (t.socialLinks || []).filter((s) => s && s.url && /^https?:\/\//i.test(s.url));
+
+  const socialLinksHtml = validSocials.length > 0
+    ? validSocials.map((s) => {
+        const rawLabel = s.label?.trim() || DEFAULT_SOCIAL_PLATFORM_LABELS[s.platform.toLowerCase()] || s.platform || 'Link';
+        const label = escapeHtml(rawLabel);
+        const url = escapeHtml(s.url);
+        const iconSvg = getSocialSvg(s.platform, effectiveButtonText, 13);
+        const buttonBorder = isHeaderMatch
+          ? `border: 1px solid ${t.accentColor};`
+          : `border: 1px solid ${effectiveButtonBg === '#ffffff' ? '#cbd5e1' : 'rgba(0,0,0,0.12)'};`;
+
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin: 3px 4px; padding: 5px 12px; ${buttonBorder} border-radius: 6px; background-color: ${effectiveButtonBg}; color: ${effectiveButtonText}; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-decoration: none; vertical-align: middle;">${iconSvg}<span style="vertical-align: middle;">${label}</span></a>`;
+      }).join(' ')
+    : '';
+
+  const hasFooterBand = Boolean(t.footerText?.trim() || socialLinksHtml);
+  let footerBand = '';
+  if (hasFooterBand) {
+    const borderTop = isHeaderMatch ? `border-top: 3px solid ${t.accentColor};` : 'border-top: 1px solid #e2e8f0;';
+    const textAlign = isHeaderMatch ? t.headerAlign : 'center';
+    const padding = isHeaderMatch ? '22px 32px' : '18px 28px';
+
+    const socialsMarkup = socialLinksHtml
+      ? `<div style="margin: 0 0 ${t.footerText?.trim() ? '14px' : '0'} 0;">${socialLinksHtml}</div>`
+      : '';
+    const textMarkup = t.footerText?.trim()
+      ? `<div style="font-size: 11px; color: ${effectiveFooterText}; opacity: 0.85; line-height: 1.6; white-space: pre-wrap;">${textToHtml(t.footerText, t.accentColor)}</div>`
+      : '';
+    footerBand = `<div style="background-color: ${effectiveFooterBg}; ${borderTop} padding: ${padding}; text-align: ${textAlign};">
+      ${socialsMarkup}
+      ${textMarkup}
+    </div>`;
+  }
+
+  const footer = `${t.footerImageId ? strip(t.footerImageId) : ''}${footerBand}`;
 
   return `<!DOCTYPE html>
 <html lang="en">

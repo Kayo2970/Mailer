@@ -1,11 +1,122 @@
 'use client';
 
-import React, { useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, Loader2, PlugZap, Save, XCircle } from 'lucide-react';
-import { api, type PublicEmailSettings } from '@/lib/client';
+import React, { useRef, useState } from 'react';
+import { CheckCircle2, ChevronDown, ChevronUp, Loader2, PlugZap, Plus, RotateCcw, Save, Trash2, XCircle } from 'lucide-react';
+import {
+  api,
+  DEFAULT_SOCIAL_PLATFORM_LABELS,
+  SOCIAL_PLATFORMS,
+  SocialIcon,
+  type PublicEmailSettings,
+  type SocialLink,
+} from '@/lib/client';
 import type { EmailProvider } from '@/lib/email-service';
 import { ActionButton, EmailPreview, type Toast } from './ui';
 import { ImageField } from './image-library';
+
+function ColorPickerField({
+  id,
+  label,
+  value,
+  onChange,
+  presets,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  presets?: string[];
+}) {
+  const [localInput, setLocalInput] = useState<string | null>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  const displayValue = localInput !== null ? localInput : value;
+
+  const handleTextChange = (text: string) => {
+    setLocalInput(text);
+    const cleaned = text.trim();
+    if (/^#([0-9a-fA-F]{3}){1,2}$/.test(cleaned)) {
+      const normalized = cleaned.length === 4
+        ? `#${cleaned[1]}${cleaned[1]}${cleaned[2]}${cleaned[2]}${cleaned[3]}${cleaned[3]}`.toUpperCase()
+        : cleaned.toUpperCase();
+      onChange(normalized);
+    }
+  };
+
+  const handleBlur = () => {
+    setLocalInput(null);
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <label htmlFor={id} className="label !mb-0 text-xs">{label}</label>
+        <span className="font-mono text-[10px] text-slate-400">{value}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => colorInputRef.current?.click()}
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-300 shadow-xs transition hover:scale-105 hover:border-amber-500 focus-visible:outline-2 focus-visible:outline-amber-500 dark:border-white/20"
+            style={{ backgroundColor: value || '#ffffff' }}
+            title={`Pick ${label} colour`}
+            aria-label={`Pick ${label} colour`}
+          >
+            <span className="sr-only">Choose colour</span>
+          </button>
+          <input
+            ref={colorInputRef}
+            id={id}
+            type="color"
+            value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#0f172a'}
+            onChange={(e) => {
+              setLocalInput(null);
+              onChange(e.target.value.toUpperCase());
+            }}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+        </div>
+        <input
+          type="text"
+          value={displayValue}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onBlur={handleBlur}
+          placeholder="#000000"
+          maxLength={7}
+          className="input !h-8 !py-1 !px-2 font-mono text-xs uppercase"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </div>
+      {presets && presets.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {presets.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => {
+                setLocalInput(null);
+                onChange(preset);
+              }}
+              className={`h-4 w-4 rounded-sm border transition hover:scale-110 ${
+                value.toLowerCase() === preset.toLowerCase()
+                  ? 'ring-2 ring-amber-500 ring-offset-1 border-white dark:ring-offset-slate-900'
+                  : 'border-slate-300 dark:border-white/20'
+              }`}
+              style={{ backgroundColor: preset }}
+              title={preset}
+              aria-label={`Set ${label} to ${preset}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Form = Omit<PublicEmailSettings, 'authPass' | 'dkimPrivateKey'> & { authPass: string; dkimPrivateKey: string };
 
@@ -37,6 +148,27 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }));
   const setTemplate = <K extends keyof Form['template']>(key: K, value: Form['template'][K]) => setForm((f) => ({ ...f, template: { ...f.template, [key]: value } }));
+
+  const socialLinks = form.template.socialLinks || [];
+
+  const updateSocialLink = (index: number, patch: Partial<SocialLink>) => {
+    const next = [...socialLinks];
+    next[index] = { ...next[index], ...patch };
+    setTemplate('socialLinks', next);
+  };
+
+  const removeSocialLink = (index: number) => {
+    setTemplate('socialLinks', socialLinks.filter((_, i) => i !== index));
+  };
+
+  const addSocialLink = (platform: string, label?: string) => {
+    const newLink: SocialLink = {
+      platform,
+      url: '',
+      label: label || DEFAULT_SOCIAL_PLATFORM_LABELS[platform.toLowerCase()] || 'Link',
+    };
+    setTemplate('socialLinks', [...socialLinks, newLink]);
+  };
 
   const needsAccount = form.provider === 'gmail' || form.provider === 'outlook' || form.provider === 'custom';
   const needsHost = form.provider === 'custom' || form.provider === 'local_relay';
@@ -284,20 +416,252 @@ export function SettingsTab({ initial, onSaved, onToast }: { initial: PublicEmai
             </div>
 
             <h3 className={GROUP}>Colours</h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {([['headerBackground', 'Header'], ['headerTextColor', 'Header text'], ['accentColor', 'Accent'], ['pageBackground', 'Page']] as const).map(([key, name]) => (
-                <div key={key}>
-                  <label className="label" htmlFor={key}>{name}</label>
-                  <input id={key} type="color" className="input !h-[38px] !p-1" value={form.template[key]} onChange={(e) => setTemplate(key, e.target.value)} />
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <ColorPickerField
+                id="headerBackground"
+                label="Header"
+                value={form.template.headerBackground}
+                onChange={(v) => setTemplate('headerBackground', v)}
+                presets={['#0F172A', '#1E293B', '#1E1B4B', '#064E3B', '#78350F', '#18181B']}
+              />
+              <ColorPickerField
+                id="headerTextColor"
+                label="Header text"
+                value={form.template.headerTextColor}
+                onChange={(v) => setTemplate('headerTextColor', v)}
+                presets={['#FFFFFF', '#F8FAFC', '#E2E8F0', '#CBD5E1', '#FDE68A', '#A7F3D0']}
+              />
+              <ColorPickerField
+                id="accentColor"
+                label="Accent"
+                value={form.template.accentColor}
+                onChange={(v) => setTemplate('accentColor', v)}
+                presets={['#D97706', '#2563EB', '#059669', '#7C3AED', '#DC2626', '#EA580C']}
+              />
+              <ColorPickerField
+                id="pageBackground"
+                label="Page"
+                value={form.template.pageBackground}
+                onChange={(v) => setTemplate('pageBackground', v)}
+                presets={['#F1F5F9', '#F8FAFC', '#FFFFFF', '#F3F4F6', '#E2E8F0', '#0F172A']}
+              />
             </div>
 
             <h3 className={GROUP}>Footer</h3>
+            <div>
+              <span className="label">Footer style</span>
+              <div className="flex gap-2">
+                {([
+                  { id: 'simple', label: 'Light' },
+                  { id: 'match_header', label: 'Match header' },
+                ] as const).map(({ id, label }) => {
+                  const active = (form.template.footerStyle || 'simple') === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setForm((f) => ({
+                          ...f,
+                          template: {
+                            ...f.template,
+                            footerStyle: id,
+                            footerBackground: id === 'match_header' ? f.template.headerBackground : '#F8FAFC',
+                            footerTextColor: id === 'match_header' ? f.template.headerTextColor : '#64748B',
+                          },
+                        }));
+                      }}
+                      aria-pressed={active}
+                      className={`flex-1 cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? 'border-amber-500 bg-gradient-to-br from-amber-50 via-yellow-50/70 to-amber-100/70 dark:from-amber-950/70 dark:via-slate-900 dark:to-yellow-950/40'
+                          : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="hint">
+                {(form.template.footerStyle || 'simple') === 'match_header'
+                  ? 'Footer band adopts the header’s background colour, text colour, accent border, and alignment.'
+                  : 'Subtle light grey bar with muted text.'}
+              </p>
+            </div>
+
+            {/* Dedicated Color Pickers for Footer Background & Text */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ColorPickerField
+                id="footerBackground"
+                label="Footer background"
+                value={form.template.footerBackground || ((form.template.footerStyle || 'simple') === 'match_header' ? form.template.headerBackground : '#F8FAFC')}
+                onChange={(v) => setTemplate('footerBackground', v)}
+                presets={[
+                  form.template.headerBackground,
+                  '#F8FAFC',
+                  '#FFFFFF',
+                  '#0F172A',
+                  '#1E293B',
+                  form.template.accentColor,
+                ]}
+              />
+              <ColorPickerField
+                id="footerTextColor"
+                label="Footer text"
+                value={form.template.footerTextColor || ((form.template.footerStyle || 'simple') === 'match_header' ? form.template.headerTextColor : '#64748B')}
+                onChange={(v) => setTemplate('footerTextColor', v)}
+                presets={[
+                  form.template.headerTextColor,
+                  '#FFFFFF',
+                  '#64748B',
+                  '#475569',
+                  '#E2E8F0',
+                  form.template.accentColor,
+                ]}
+              />
+            </div>
+
             <ImageField label="Footer image" value={form.template.footerImageId} onChange={(id) => setTemplate('footerImageId', id)} hint="A full-width strip under the message — a signature block or your letterhead's footer." />
             <div>
               <label className="label" htmlFor="footer">Footer text <span className="font-normal text-slate-400">(optional)</span></label>
               <textarea id="footer" className="input min-h-[60px]" value={form.template.footerText} onChange={(e) => setTemplate('footerText', e.target.value)} placeholder="Your organisation · address · why they are receiving this" />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="label !mb-0">Social media & links</span>
+                  <p className="hint !mt-0">Added to the email footer with official logos and icons.</p>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {socialLinks.length} {socialLinks.length === 1 ? 'link' : 'links'}
+                </span>
+              </div>
+
+              {/* Social link buttons color customization */}
+              {socialLinks.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-slate-800/50 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Button colours</span>
+                    {(form.template.socialButtonBg || form.template.socialButtonText) && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, template: { ...f.template, socialButtonBg: '', socialButtonText: '' } }))}
+                        className="inline-flex items-center gap-1 text-[11px] text-amber-600 hover:underline dark:text-amber-400 cursor-pointer"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Reset to theme</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <ColorPickerField
+                      id="socialButtonBg"
+                      label="Button background"
+                      value={form.template.socialButtonBg || (form.template.footerStyle === 'match_header' ? '#1E293B' : '#FFFFFF')}
+                      onChange={(v) => setTemplate('socialButtonBg', v)}
+                      presets={['#FFFFFF', '#1E293B', '#0F172A', form.template.accentColor, '#F1F5F9', '#2563EB']}
+                    />
+                    <ColorPickerField
+                      id="socialButtonText"
+                      label="Button text & icon"
+                      value={form.template.socialButtonText || (form.template.footerStyle === 'match_header' ? form.template.headerTextColor : '#475569')}
+                      onChange={(v) => setTemplate('socialButtonText', v)}
+                      presets={['#FFFFFF', '#475569', '#0F172A', form.template.accentColor, '#2563EB', '#D97706']}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Existing links */}
+              {socialLinks.length > 0 && (
+                <div className="space-y-2">
+                  {socialLinks.map((link, idx) => (
+                    <div key={idx} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2.5 shadow-xs dark:border-white/10 dark:bg-slate-800/80 sm:flex-row sm:items-center">
+                      <div className="flex items-center gap-2 w-full sm:w-44">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200" title={link.platform}>
+                          <SocialIcon platform={link.platform} className="h-4 w-4" />
+                        </div>
+                        <label htmlFor={`social-platform-${idx}`} className="sr-only">Platform</label>
+                        <select
+                          id={`social-platform-${idx}`}
+                          className="input !h-[34px] !py-1 text-xs flex-1 capitalize"
+                          value={link.platform}
+                          onChange={(e) => {
+                            const newPlatform = e.target.value;
+                            const defaultLabel = DEFAULT_SOCIAL_PLATFORM_LABELS[newPlatform] || 'Link';
+                            updateSocialLink(idx, {
+                              platform: newPlatform,
+                              label: link.label && link.label !== DEFAULT_SOCIAL_PLATFORM_LABELS[link.platform] ? link.label : defaultLabel,
+                            });
+                          }}
+                        >
+                          {SOCIAL_PLATFORMS.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex-1">
+                        <label htmlFor={`social-url-${idx}`} className="sr-only">URL</label>
+                        <input
+                          id={`social-url-${idx}`}
+                          type="url"
+                          className="input !h-[34px] !py-1 text-xs"
+                          value={link.url}
+                          onChange={(e) => updateSocialLink(idx, { url: e.target.value })}
+                          placeholder={SOCIAL_PLATFORMS.find((p) => p.id === link.platform)?.placeholder || 'https://example.com'}
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                        />
+                      </div>
+
+                      <div className="w-full sm:w-28">
+                        <label htmlFor={`social-label-${idx}`} className="sr-only">Label</label>
+                        <input
+                          id={`social-label-${idx}`}
+                          type="text"
+                          className="input !h-[34px] !py-1 text-xs"
+                          value={link.label || ''}
+                          onChange={(e) => updateSocialLink(idx, { label: e.target.value })}
+                          placeholder="Label"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeSocialLink(idx)}
+                        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:hover:border-rose-500/40 dark:hover:bg-rose-950 dark:hover:text-rose-300"
+                        title="Remove link"
+                        aria-label={`Remove ${link.label || link.platform} link`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Quick Add Shortcuts */}
+              <div className="pt-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Quick add platform:</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {SOCIAL_PLATFORMS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => addSocialLink(p.id, p.defaultLabel)}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-xs hover:border-amber-400 hover:bg-amber-50/50 hover:text-slate-900 dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-amber-500/50 dark:hover:bg-amber-950/30 dark:hover:text-white"
+                    >
+                      <SocialIcon platform={p.id} className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      <span>{p.defaultLabel}</span>
+                      <Plus className="h-3 w-3 text-amber-500" />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </>
         )}

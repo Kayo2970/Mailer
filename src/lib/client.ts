@@ -5,6 +5,8 @@ export type { EmailLog, PublicEmailSettings };
 export type LogRow = Omit<EmailLog, 'bodyHtml' | 'attachmentKeys' | 'inlineImages'>;
 export type { PublicLibraryImage } from './images';
 
+export * from './social-icons';
+
 export interface LogCounts { total: number; queued: number; sending: number; sent: number; failed: number; cancelled: number }
 
 /** JSON request; throws an Error carrying the server's message when the response is not OK. */
