@@ -251,8 +251,14 @@ export function mergeSettings(current: EmailSettings, raw: unknown): EmailSettin
   if (input.sendDelayMinutes !== undefined) next.sendDelayMinutes = clampNumber(input.sendDelayMinutes, 0, 24 * 60, current.sendDelayMinutes);
   if (input.throttleSeconds !== undefined) next.throttleSeconds = clampNumber(input.throttleSeconds, 0, 600, current.throttleSeconds);
 
+  // A stored password belongs to one account. If the sign-in or provider changed and no new
+  // password was typed, keeping the old one would send account A's password to account B's
+  // server and fail with a confusing "authentication failed" — drop it so the form asks again.
+  const accountChanged =
+    next.provider !== current.provider || next.authUser.toLowerCase() !== current.authUser.toLowerCase();
+
   if (typeof input.authPass === 'string' && input.authPass !== '') next.authPass = input.authPass;
-  else if (input.clearPassword === true) next.authPass = '';
+  else if (input.clearPassword === true || accountChanged) next.authPass = '';
 
   if (typeof input.dkimPrivateKey === 'string' && input.dkimPrivateKey.trim() !== '') {
     next.dkimPrivateKey = normalizeAndValidateDkimKey(input.dkimPrivateKey);
