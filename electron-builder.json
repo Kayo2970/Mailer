@@ -35,14 +35,16 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "public/icon.png"
+    "icon": "public/icon.png",
+    "artifactName": "${productName}-${version}-Windows-${arch}.${ext}"
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Mailer"
+    "shortcutName": "Mailer",
+    "installerArtifactName": "${productName}-${version}-Windows-Setup.exe"
   },
   "mac": {
     "target": [
@@ -57,7 +59,8 @@
     ],
     "icon": "public/icon.png",
     "category": "public.app-category.productivity",
-    "hardenedRuntime": false
+    "hardenedRuntime": false,
+    "artifactName": "${productName}-${version}-macOS-${arch}.${ext}"
   },
   "linux": {
     "target": [
@@ -75,6 +78,7 @@
       }
     ],
     "icon": "public/icon.png",
-    "category": "Office;Email;"
+    "category": "Office;Email;",
+    "artifactName": "${productName}-${version}-Linux-${arch}.${ext}"
   }
 }

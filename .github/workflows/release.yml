@@ -31,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Linux dependencies (Ubuntu only)
@@ -71,7 +71,9 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Mailer ${{ github.ref_name }}
-          generate_release_notes: true
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
           files: |
             dist-electron/*.exe
             dist-electron/*.dmg
