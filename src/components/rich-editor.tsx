@@ -3,6 +3,7 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   AlignCenter,
+  AlignJustify,
   AlignLeft,
   AlignRight,
   Bold,
@@ -60,6 +61,7 @@ type ActiveFormats = {
   left: boolean;
   center: boolean;
   right: boolean;
+  justify: boolean;
 };
 
 const EMPTY_ACTIVE: ActiveFormats = {
@@ -72,6 +74,7 @@ const EMPTY_ACTIVE: ActiveFormats = {
   left: false,
   center: false,
   right: false,
+  justify: false,
 };
 
 function ToolbarButton({
@@ -181,6 +184,7 @@ export const RichEmailEditor = forwardRef<RichEditorHandle, RichEmailEditorProps
         left: document.queryCommandState('justifyLeft'),
         center: document.queryCommandState('justifyCenter'),
         right: document.queryCommandState('justifyRight'),
+        justify: document.queryCommandState('justifyFull'),
       });
     } catch {
       // queryCommandState can throw on detached ranges in some browsers
@@ -462,6 +466,9 @@ export const RichEmailEditor = forwardRef<RichEditorHandle, RichEmailEditorProps
         </ToolbarButton>
         <ToolbarButton title="Align right" active={active.right} onClick={() => exec('justifyRight')}>
           <AlignRight className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton title="Justify" active={active.justify} onClick={() => exec('justifyFull')}>
+          <AlignJustify className="h-3.5 w-3.5" />
         </ToolbarButton>
 
         <span className="mx-1 h-4 w-px bg-slate-200 dark:bg-white/10" />
