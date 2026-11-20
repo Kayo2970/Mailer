@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'unsafe-inline'" />
+<title>Mailer</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(120% 120% at 50% 0%, #1a2238 0%, #090d16 70%);
+    color: #e8e6df; font: 14px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif;
+    border: 1px solid #2a3350; box-sizing: border-box; -webkit-app-region: drag; user-select: none;
+  }
+  .logo {
+    width: 64px; height: 64px; border-radius: 16px; margin-bottom: 18px;
+    background: linear-gradient(135deg, #fde047, #f59e0b 52%, #b45309);
+    display: grid; place-items: center; color: #1a1205; font-size: 34px; font-weight: 700;
+    box-shadow: 0 8px 30px rgba(245, 158, 11, .35);
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: .3px; }
+  .sub { color: #8f98b3; margin-bottom: 28px; font-size: 12px; }
+  .bar { width: 280px; height: 6px; border-radius: 999px; background: #1c2440; overflow: hidden; }
+  .fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, #fde047, #f59e0b); transition: width .35s ease;
+  }
+  .row { width: 280px; display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: #b9c0d6; }
+  .err { color: #fca5a5; }
+</style>
+</head>
+<body>
+  <div class="logo">M</div>
+  <h1>Mailer</h1>
+  <div class="sub">Starting up — this only takes a moment</div>
+  <div class="bar"><div class="fill" id="fill"></div></div>
+  <div class="row"><span id="msg">Starting…</span><span id="pct">0%</span></div>
+  <script>
+    window.setProgress = function (pct, msg, isError) {
+      var p = Math.max(0, Math.min(100, Math.round(pct)));
+      document.getElementById('fill').style.width = p + '%';
+      document.getElementById('pct').textContent = p + '%';
+      var m = document.getElementById('msg');
+      m.textContent = msg;
+      m.className = isError ? 'err' : '';
+    };
+  </script>
+</body>
+</html>
