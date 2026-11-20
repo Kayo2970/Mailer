@@ -1,4 +1,4 @@
-# Mailer v0.1.1 — Desktop Release
+# Mailer v0.1.2 — Desktop Release
 
 **Mailer** is a fast, private, local-first email dispatcher and mail merge desktop application. Designed to draft, personalize, and dispatch emails directly from your own computer through your existing mail provider (Gmail, Outlook, Yahoo, AWS SES, or custom SMTP).
 
@@ -12,14 +12,14 @@ Choose the plug-and-play download for your operating system:
 
 | Platform | Format | File | How to Run |
 | :--- | :--- | :--- | :--- |
-| **Windows** | **Installer (`.exe`)** | `Mailer-0.1.1-Windows-Setup.exe` | Double-click to install with desktop & start menu shortcuts. |
-| **Windows** | **Portable (`.exe`)** | `Mailer-0.1.1-Windows-Portable.exe` | Standalone plug & play executable. No installation required. |
-| **Windows** | **Portable (`.zip`)** | `Mailer-0.1.1-Windows.zip` | Extract and double-click `Mailer.exe`. |
-| **macOS** | **Apple Disk Image** | `Mailer-0.1.1-macOS-arm64.dmg`<br>`Mailer-0.1.1-macOS-x64.dmg` | Open `.dmg` and drag Mailer into your `Applications` folder. |
-| **macOS** | **Portable Archive** | `Mailer-0.1.1-macOS.zip` | Extract and double-click `Mailer.app`. |
-| **Linux** | **AppImage** | `Mailer-0.1.1-Linux.AppImage` | Universal plug & play Linux binary (`chmod +x` and run). |
-| **Linux** | **Debian / Ubuntu** | `Mailer-0.1.1-Linux.deb` | Install via `sudo dpkg -i Mailer*.deb`. |
-| **Linux** | **Tarball** | `Mailer-0.1.1-Linux.tar.gz` | Extract and run `./mailer`. |
+| **Windows** | **Installer (`.exe`)** | `Mailer-0.1.2-Windows-Setup.exe` | Double-click to install with desktop & start menu shortcuts. |
+| **Windows** | **Portable (`.exe`)** | `Mailer-0.1.2-Windows-Portable.exe` | Standalone plug & play executable. No installation required. |
+| **Windows** | **Portable (`.zip`)** | `Mailer-0.1.2-Windows.zip` | Extract and double-click `Mailer.exe`. |
+| **macOS** | **Apple Disk Image** | `Mailer-0.1.2-macOS-arm64.dmg`<br>`Mailer-0.1.2-macOS-x64.dmg` | Open `.dmg` and drag Mailer into your `Applications` folder. |
+| **macOS** | **Portable Archive** | `Mailer-0.1.2-macOS.zip` | Extract and double-click `Mailer.app`. |
+| **Linux** | **AppImage** | `Mailer-0.1.2-Linux.AppImage` | Universal plug & play Linux binary (`chmod +x` and run). |
+| **Linux** | **Debian / Ubuntu** | `Mailer-0.1.2-Linux.deb` | Install via `sudo dpkg -i Mailer*.deb`. |
+| **Linux** | **Tarball** | `Mailer-0.1.2-Linux.tar.gz` | Extract and run `./mailer`. |
 
 ---
 
