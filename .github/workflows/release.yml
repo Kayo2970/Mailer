@@ -81,6 +81,7 @@ jobs:
             dist-electron/*.zip
             dist-electron/*.AppImage
             dist-electron/*.deb
+            dist-electron/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -95,3 +96,4 @@ jobs:
             dist-electron/*.zip
             dist-electron/*.AppImage
             dist-electron/*.deb
+            dist-electron/*.tar.gz

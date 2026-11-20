@@ -48,7 +48,8 @@
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
-    "createStartMenuShortcut": true
+    "createStartMenuShortcut": true,
+    "artifactName": "${productName}-${version}-Windows-Setup.${ext}"
   },
   "mac": {
     "target": [
@@ -95,6 +96,11 @@
     ],
     "icon": "public/icon.png",
     "category": "Office;Email;",
-    "artifactName": "${productName}-${version}-Linux-${arch}.${ext}"
+    "artifactName": "${productName}-${version}-Linux-${arch}.${ext}",
+    "maintainer": "Kayomarz Pavri <noreply@users.noreply.github.com>"
+  },
+  "afterPack": "scripts/after-pack.cjs",
+  "portable": {
+    "artifactName": "${productName}-${version}-Windows-Portable.${ext}"
   }
 }
