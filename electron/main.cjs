@@ -15,6 +15,7 @@ const net = require('net');
 const { fork } = require('child_process');
 
 let mainWindow = null;
+let splashWindow = null;
 let serverProcess = null;
 const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
 
@@ -38,6 +39,42 @@ if (!process.env.MAILER_DATA_DIR) {
   process.env.MAILER_DATA_DIR = defaultDataDir;
 }
 
+/** Show the loading window immediately so the user sees the app is starting. */
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width: 440,
+    height: 320,
+    frame: false,
+    resizable: false,
+    movable: true,
+    minimizable: false,
+    maximizable: false,
+    center: true,
+    show: false,
+    backgroundColor: '#090d16',
+    icon: path.join(__dirname, '..', 'public', 'icon.png'),
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+  splashWindow.once('ready-to-show', () => splashWindow && splashWindow.show());
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+  return splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+}
+
+/** Update the splash progress bar (0-100) and status text. */
+function setProgress(pct, msg, isError = false) {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  splashWindow.webContents
+    .executeJavaScript(`window.setProgress(${Number(pct)}, ${JSON.stringify(msg)}, ${isError})`)
+    .catch(() => {});
+}
+
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+  splashWindow = null;
+}
+
 /** Find an available port on 127.0.0.1 */
 function getAvailablePort(preferred = 3040) {
   return new Promise((resolve) => {
@@ -58,10 +95,11 @@ function getAvailablePort(preferred = 3040) {
 }
 
 /** Poll URL until it returns HTTP 200/304 */
-function waitForServer(url, timeoutMs = 25000) {
+function waitForServer(url, timeoutMs = 25000, onTick) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     function ping() {
+      if (onTick) onTick(Date.now() - start);
       const req = http.get(url, (res) => {
         if (res.statusCode && res.statusCode < 500) {
           resolve(true);
@@ -128,7 +166,12 @@ async function startServer(port) {
   });
 
   const url = `http://127.0.0.1:${port}`;
-  await waitForServer(url);
+  setProgress(30, 'Starting the Mailer engine…');
+  // Creep from 30% toward 85% while the server boots (never reaches 100% on its own).
+  await waitForServer(url, 25000, (elapsed) => {
+    setProgress(30 + 55 * (1 - Math.exp(-elapsed / 3500)), 'Starting the Mailer engine…');
+  });
+  setProgress(88, 'Engine ready');
   return url;
 }
 
@@ -172,7 +215,9 @@ function createWindow(url) {
   mainWindow.loadURL(url);
 
   mainWindow.once('ready-to-show', () => {
+    setProgress(100, 'Ready');
     mainWindow.show();
+    closeSplash();
   });
 
   mainWindow.on('closed', () => {
@@ -183,10 +228,15 @@ function createWindow(url) {
 // App lifecycle
 app.whenReady().then(async () => {
   try {
+    await createSplash();
+    setProgress(5, 'Preparing…');
     const port = await getAvailablePort(3040);
+    setProgress(15, 'Preparing your data folder…');
     const url = await startServer(port);
+    setProgress(92, 'Loading the interface…');
     createWindow(url);
   } catch (err) {
+    closeSplash();
     console.error('[Electron] Failed to start Mailer:', err);
     dialog.showErrorBox(
       'Mailer failed to start',
