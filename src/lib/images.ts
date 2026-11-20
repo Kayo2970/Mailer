@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { mutateCollection, readCollection } from './store';
 import { deleteStoredFilesForRecord, readStoredFile, saveFile } from './file-storage';
 import { MAX_IMAGE_BYTES, findImageIds, isImageId, replaceImageRefs, sniffImageType } from './inline-images';
+import { findSocialCidIds, getSocialPngDataUri, replaceSocialCidRefs } from './social-png';
 
 const IMAGE_CATEGORY = 'images';
 
@@ -104,18 +105,41 @@ export async function inlineImagesForDisplay(
   html: string,
   extra: Array<{ id: string; contentType: string; storageKey: string }> = []
 ): Promise<string> {
-  const ids = findImageIds(html);
-  if (ids.length === 0) return html;
-  const library = await listImages();
-  const resolved = new Map<string, string>();
-  for (const id of ids) {
-    for (const source of [extra.find((e) => e.id === id), library.find((i) => i.id === id)]) {
-      if (!source) continue;
-      try {
-        resolved.set(id, dataUri(source.contentType, await readStoredFile(source.storageKey)));
-        break;
-      } catch { /* that copy is gone — try the next one */ }
+  let result = html;
+  const ids = findImageIds(result);
+  if (ids.length > 0) {
+    const library = await listImages();
+    const resolved = new Map<string, string>();
+    for (const id of ids) {
+      for (const source of [extra.find((e) => e.id === id), library.find((i) => i.id === id)]) {
+        if (!source) continue;
+        try {
+          resolved.set(id, dataUri(source.contentType, await readStoredFile(source.storageKey)));
+          break;
+        } catch { /* that copy is gone — try the next one */ }
+      }
     }
+    result = replaceImageRefs(result, (id) => resolved.get(id));
   }
-  return replaceImageRefs(html, (id) => resolved.get(id));
+
+  const socialIds = findSocialCidIds(result);
+  if (socialIds.length > 0) {
+    const socialResolved = new Map<string, string>();
+    for (const id of socialIds) {
+      const m = id.match(/^soc_([a-z0-9]+)(?:_([0-9a-f]{6}|[0-9a-f]{3}))?$/i);
+      if (m) {
+        const platform = m[1];
+        const color = m[2] ? `#${m[2]}` : '#475569';
+        try {
+          const uri = await getSocialPngDataUri(platform, color);
+          socialResolved.set(id, uri);
+        } catch (err) {
+          console.error('[mailer] Failed to generate social PNG data URI for preview:', id, err);
+        }
+      }
+    }
+    result = replaceSocialCidRefs(result, (id) => socialResolved.get(id));
+  }
+
+  return result;
 }

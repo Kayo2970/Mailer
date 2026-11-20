@@ -17,7 +17,8 @@ import { DirectSendTransport } from './direct-smtp-transport';
 import { ImageError, deleteImage, loadImagesFor } from './images';
 import { cidFor, findImageIds, imageTag, imageTokensToHtml, isImageId, stripImageTokens } from './inline-images';
 import { MAX_TOTAL_ATTACHMENT_BYTES } from './email-attachments';
-import { DEFAULT_SOCIAL_PLATFORM_LABELS, getSocialSvg, type SocialLink } from './client';
+import { DEFAULT_SOCIAL_PLATFORM_LABELS, type SocialLink } from './client';
+import { findSocialCidIds, getSocialAttachmentsForLinks, socialCid } from './social-png';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -465,6 +466,14 @@ export interface MessageContent {
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const SERIF_FONT = "Georgia, 'Times New Roman', Times, serif";
 
+export function getTemplateSocialColor(template: EmailTemplateSettings): string {
+  const isHeaderMatch = template.footerStyle === 'match_header';
+  const defaultButtonText = isHeaderMatch
+    ? (template.footerTextColor || template.headerTextColor)
+    : (template.footerTextColor || '#475569');
+  return template.socialButtonText || defaultButtonText;
+}
+
 /**
  * The finished HTML of a message exactly as it will be sent — also used for the
  * live preview, so what you see is what goes out.
@@ -490,13 +499,19 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
 
   const brand = escapeHtml(t.brandName || settings.fromName || '');
   const brandText = t.showBrandName ? brand : '';
-  const strip = (id: string) => imageTag(id, { width: t.contentWidth, alt: brand, style: 'display: block;' });
+  const strip = (id: string, position: 'top' | 'bottom' = 'top') => {
+    const radiusStyle = position === 'top'
+      ? 'border-top-left-radius: 12px; border-top-right-radius: 12px;'
+      : 'border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;';
+    return `<div style="margin: 0; padding: 0; line-height: 0; font-size: 0; width: 100%; ${radiusStyle} overflow: hidden;"><img src="cid:${cidFor(id)}" alt="${brand}" width="${t.contentWidth}" style="display: block; width: 100%; max-width: 100%; height: auto; margin: 0; padding: 0; border: 0; ${radiusStyle}"></div>`;
+  };
   // Block images are aligned with margins: text-align does not move a display:block element.
   const logoMargin = t.headerAlign === 'left' ? '0 auto 0 0' : t.headerAlign === 'right' ? '0 0 0 auto' : '0 auto';
 
-  const banner = t.bannerImageId ? strip(t.bannerImageId) : '';
+  const banner = t.bannerImageId ? strip(t.bannerImageId, 'top') : '';
+  const bandRadius = banner ? '' : 'border-top-left-radius: 12px; border-top-right-radius: 12px;';
   const band = t.logoImageId || brandText || t.tagline
-    ? `<div style="background-color: ${t.headerBackground}; padding: 24px 32px; text-align: ${t.headerAlign};">
+    ? `<div style="background-color: ${t.headerBackground}; padding: 24px 32px; text-align: ${t.headerAlign}; margin: 0; ${bandRadius}">
         ${t.logoImageId ? imageTag(t.logoImageId, { width: t.logoWidth, alt: brand, style: `display: block; margin: ${logoMargin};` }) : ''}
         ${brandText ? `<div style="display: inline-block; padding: 5px 12px; border: 1px solid ${t.accentColor}; border-radius: 6px;${t.logoImageId ? ' margin-top: 14px;' : ''}"><span style="color: ${t.headerTextColor}; font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">${brandText}</span></div>` : ''}
         ${t.tagline ? `<p style="color: ${t.headerTextColor}; opacity: 0.65; font-size: 12px; margin: 8px 0 0 0; font-weight: 500;">${escapeHtml(t.tagline)}</p>` : ''}
@@ -504,7 +519,7 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
     : '';
   const header = banner || band
     ? `${banner}${band}`
-    : `<div style="background-color: ${t.accentColor}; height: 6px; font-size: 0; line-height: 0;">&nbsp;</div>`;
+    : `<div style="background-color: ${t.accentColor}; height: 6px; font-size: 0; line-height: 0; border-top-left-radius: 12px; border-top-right-radius: 12px;">&nbsp;</div>`;
   const isHeaderMatch = t.footerStyle === 'match_header';
   const effectiveFooterBg = t.footerBackground || (isHeaderMatch ? t.headerBackground : '#f8fafc');
   const effectiveFooterText = t.footerTextColor || (isHeaderMatch ? t.headerTextColor : '#64748b');
@@ -526,12 +541,12 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
         const rawLabel = s.label?.trim() || DEFAULT_SOCIAL_PLATFORM_LABELS[s.platform.toLowerCase()] || s.platform || 'Link';
         const label = escapeHtml(rawLabel);
         const url = escapeHtml(s.url);
-        const iconSvg = getSocialSvg(s.platform, effectiveButtonText, 13);
+        const cid = socialCid(s.platform, effectiveButtonText);
         const buttonBorder = isHeaderMatch
           ? `border: 1px solid ${t.accentColor};`
           : `border: 1px solid ${effectiveButtonBg === '#ffffff' ? '#cbd5e1' : 'rgba(0,0,0,0.12)'};`;
 
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin: 3px 4px; padding: 5px 12px; ${buttonBorder} border-radius: 6px; background-color: ${effectiveButtonBg}; color: ${effectiveButtonText}; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-decoration: none; vertical-align: middle;">${iconSvg}<span style="vertical-align: middle;">${label}</span></a>`;
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin: 3px 4px; padding: 5px 12px; ${buttonBorder} border-radius: 6px; background-color: ${effectiveButtonBg}; color: ${effectiveButtonText}; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-decoration: none; vertical-align: middle;"><img src="cid:${cid}" alt="" width="13" height="13" style="display: inline-block; vertical-align: -2px; margin-right: 5px; width: 13px; height: 13px; border: 0;" /><span style="vertical-align: middle;">${label}</span></a>`;
       }).join(' ')
     : '';
 
@@ -554,12 +569,12 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
     </div>`;
   }
 
-  const footer = `${t.footerImageId ? strip(t.footerImageId) : ''}${footerBand}`;
+  const footer = `${t.footerImageId ? strip(t.footerImageId, 'bottom') : ''}${footerBand}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
 ${head}
-<body style="background-color: ${t.pageBackground}; margin: 0; padding: 24px 12px; font-family: ${font}; color: #1e293b;">
+<body style="background-color: ${t.pageBackground}; margin: 0; padding: 0 12px 24px 12px; font-family: ${font}; color: #1e293b;">
   <div style="max-width: ${t.contentWidth}px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
     ${header}
     <div style="padding: 28px 32px; color: #334155; font-size: ${t.fontSize}px; line-height: 1.65;">
@@ -669,7 +684,10 @@ export async function testEmailConnection(testRecipient: string, draft?: unknown
     const subject = 'Mailer test message';
     const body = `This is a test message from Mailer.\n\nYour mail settings work: ${settings.provider} via ${effectiveHost}:${effectivePort}, sending as ${settings.fromEmail}.\n\nSent ${new Date().toLocaleString()}`;
     const html = renderEmailHtml(settings, { subject, body });
-    const attachments = (await loadImagesFor(html)).map(asInline); // the letterhead images, so the test shows the real look
+    const libraryImages = (await loadImagesFor(html)).map(asInline);
+    const socialColor = getTemplateSocialColor(settings.template);
+    const socialAttachments = (await getSocialAttachmentsForLinks(settings.template.socialLinks, socialColor)).map(asInline);
+    const attachments = [...libraryImages, ...socialAttachments];
     const result = await executeSmtpSend(settings, { to: testRecipient, subject, text: body, html, attachments });
     if (result.status === 'FAILED') return { success: false, message: result.errorMessage || 'The test message could not be sent.' };
     return {
@@ -707,8 +725,19 @@ export async function enqueueBatch(input: BatchInput): Promise<EmailLog[]> {
   // Render first: the finished HTML says which images the batch embeds.
   const rendered = input.messages.map((m) => renderEmailHtml(settings, { subject: m.subject, body: m.body, bodyIsHtml: input.bodyIsHtml }));
   const images = await loadImagesFor(rendered);
+  const socialColor = getTemplateSocialColor(settings.template);
+  const socialAttachments = await getSocialAttachmentsForLinks(settings.template.socialLinks, socialColor);
+  const allInline = [
+    ...images,
+    ...socialAttachments.map((s) => ({
+      id: s.id,
+      filename: s.filename,
+      contentType: s.contentType,
+      content: s.content,
+    })),
+  ];
   const files = input.attachments || [];
-  const totalBytes = [...files, ...images].reduce((sum, f) => sum + f.content.length, 0);
+  const totalBytes = [...files, ...allInline].reduce((sum, f) => sum + f.content.length, 0);
   if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
     throw new ImageError('The attachments and embedded images are too large together (15 MB per message at most).');
   }
@@ -720,14 +749,17 @@ export async function enqueueBatch(input: BatchInput): Promise<EmailLog[]> {
     attachmentKeys.push(await saveFile(ATTACHMENT_CATEGORY, batchId, i, files[i].filename, files[i].content));
   }
   const inlineImages: NonNullable<EmailLog['inlineImages']> = [];
-  for (let i = 0; i < images.length; i++) {
-    const { id, filename, contentType, content } = images[i];
+  for (let i = 0; i < allInline.length; i++) {
+    const { id, filename, contentType, content } = allInline[i];
     inlineImages.push({ id, filename, contentType, storageKey: await saveFile(ATTACHMENT_CATEGORY, batchId, files.length + i, filename, content) });
   }
 
   const createdAt = new Date(now).toISOString();
   const rows: EmailLog[] = input.messages.map((m, i) => {
-    const used = new Set(findImageIds(rendered[i]));
+    const used = new Set([
+      ...findImageIds(rendered[i]),
+      ...findSocialCidIds(rendered[i]),
+    ]);
     const rowImages = inlineImages.filter((img) => used.has(img.id));
     return {
       // Sortable: batches by time, messages within a batch in list order.

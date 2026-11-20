@@ -54,17 +54,23 @@ export const imageToken = (id: string, width?: number, align?: ImageAlign): stri
 export function imageTag(id: string, opts: { width?: number; alt?: string; style?: string; align?: ImageAlign } = {}): string {
   const width = opts.width ? Math.min(2000, Math.max(16, Math.round(opts.width))) : undefined;
   const align = opts.align;
-  let margin = 'margin: 8px 0;';
-  if (align === 'center') {
-    margin = 'margin: 8px auto;';
-  } else if (align === 'right') {
-    margin = 'margin: 8px 0 8px auto;';
-  } else if (align === 'left') {
-    margin = 'margin: 8px auto 8px 0;';
+  const hasCustomMargin = Boolean(opts.style && /\bmargin\s*:/i.test(opts.style));
+  let margin = hasCustomMargin ? '' : 'margin: 8px 0;';
+  if (!hasCustomMargin) {
+    if (align === 'center') {
+      margin = 'margin: 8px auto;';
+    } else if (align === 'right') {
+      margin = 'margin: 8px 0 8px auto;';
+    } else if (align === 'left') {
+      margin = 'margin: 8px auto 8px 0;';
+    }
   }
   const alignAttr = align ? ` data-mailer-align="${align}"` : '';
   const extraStyle = opts.style ? ` ${opts.style}` : '';
-  return `<img src="cid:${cidFor(id)}" alt="${opts.alt || ''}"${width ? ` width="${width}"` : ''}${alignAttr} style="${width ? `width: ${width}px; ` : ''}max-width: 100%; height: auto; border: 0; display: block; ${margin}${extraStyle}">`;
+  const marginStyle = margin ? ` ${margin}` : '';
+  const hasCustomWidth = Boolean(opts.style && /\bwidth\s*:/i.test(opts.style));
+  const inlineWidth = width && !hasCustomWidth ? `width: ${width}px; ` : '';
+  return `<img src="cid:${cidFor(id)}" alt="${opts.alt || ''}"${width ? ` width="${width}"` : ''}${alignAttr} style="${inlineWidth}max-width: 100%; height: auto; border: 0; display: block;${marginStyle}${extraStyle}">`;
 }
 
 /** What "insert image" puts into a message the sender is writing as HTML. */
