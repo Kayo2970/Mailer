@@ -8,7 +8,7 @@
  * 4. Starts the bundled Next.js standalone server and opens a native dark/gold desktop window.
  * 5. Routes external links to the user's default web browser.
  */
-const { app, BrowserWindow, shell, Menu } = require('electron');
+const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const net = require('net');
@@ -188,6 +188,10 @@ app.whenReady().then(async () => {
     createWindow(url);
   } catch (err) {
     console.error('[Electron] Failed to start Mailer:', err);
+    dialog.showErrorBox(
+      'Mailer failed to start',
+      `${err && err.message ? err.message : err}\n\nThe bundled server did not come up. Please reinstall, or report this error.`
+    );
     app.quit();
   }
 });
