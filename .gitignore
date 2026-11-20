@@ -2,6 +2,8 @@
 /.next/
 /out/
 /build
+/dist/
+/dist-electron/
 .DS_Store
 *.pem
 npm-debug.log*

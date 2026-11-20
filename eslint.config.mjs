@@ -11,6 +11,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "dist-electron/**",
+    "electron/**",
+    "scripts/**",
     "next-env.d.ts",
     // Vendored from React Bits (reactbits.dev) — kept byte-for-byte so they can be re-synced.
     "src/components/AeroShards.jsx",

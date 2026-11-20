@@ -1,0 +1,72 @@
+{
+  "appId": "com.kayo.mailer",
+  "productName": "Mailer",
+  "copyright": "© 2026 Kayomarz Pavri",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": [
+    "electron/**/*",
+    "public/**/*",
+    ".next/standalone/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "public",
+      "to": "public"
+    },
+    {
+      "from": ".next/standalone",
+      "to": ".next/standalone"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Mailer"
+  },
+  "mac": {
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "zip",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "icon": "public/icon.png",
+    "category": "public.app-category.productivity",
+    "hardenedRuntime": false
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.png",
+    "category": "Office;Email;"
+  }
+}
