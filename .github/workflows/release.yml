@@ -54,14 +54,14 @@ jobs:
 
       - name: Build Electron desktop app
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: |
           if [ "${{ matrix.platform }}" = "win" ]; then
-            npx electron-builder --win
+            npx electron-builder --win --publish never
           elif [ "${{ matrix.platform }}" = "mac" ]; then
-            npx electron-builder --mac
+            npx electron-builder --mac --publish never
           elif [ "${{ matrix.platform }}" = "linux" ]; then
-            npx electron-builder --linux
+            npx electron-builder --linux --publish never
           fi
         shell: bash
 
@@ -74,13 +74,13 @@ jobs:
           body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
           files: |
             dist-electron/*.exe
             dist-electron/*.dmg
             dist-electron/*.zip
             dist-electron/*.AppImage
             dist-electron/*.deb
-            dist-electron/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

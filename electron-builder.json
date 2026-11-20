@@ -60,6 +60,7 @@
     "icon": "public/icon.png",
     "category": "public.app-category.productivity",
     "hardenedRuntime": false,
+    "identity": null,
     "artifactName": "${productName}-${version}-macOS-${arch}.${ext}"
   },
   "linux": {
@@ -73,7 +74,7 @@
         "arch": ["x64"]
       },
       {
-        "target": "tar.gz",
+        "target": "zip",
         "arch": ["x64"]
       }
     ],
