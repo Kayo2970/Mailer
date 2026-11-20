@@ -2,13 +2,13 @@
   "appId": "com.kayo.mailer",
   "productName": "Mailer",
   "copyright": "© 2026 Kayomarz Pavri",
+  "npmRebuild": false,
   "directories": {
     "output": "dist-electron"
   },
   "files": [
     "electron/**/*",
-    "public/**/*",
-    ".next/standalone/**/*"
+    "public/**/*"
   ],
   "extraResources": [
     {
@@ -24,15 +24,21 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       },
       {
         "target": "portable",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       },
       {
         "target": "zip",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "icon": "public/icon.png",
@@ -42,40 +48,49 @@
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
-    "createStartMenuShortcut": true,
-    "shortcutName": "Mailer",
-    "installerArtifactName": "${productName}-${version}-Windows-Setup.exe"
+    "createStartMenuShortcut": true
   },
   "mac": {
     "target": [
       {
         "target": "dmg",
-        "arch": ["x64", "arm64"]
+        "arch": [
+          "x64",
+          "arm64"
+        ]
       },
       {
         "target": "zip",
-        "arch": ["x64", "arm64"]
+        "arch": [
+          "x64",
+          "arm64"
+        ]
       }
     ],
     "icon": "public/icon.png",
     "category": "public.app-category.productivity",
     "hardenedRuntime": false,
-    "identity": null,
     "artifactName": "${productName}-${version}-macOS-${arch}.${ext}"
   },
   "linux": {
     "target": [
       {
         "target": "AppImage",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       },
       {
         "target": "deb",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       },
       {
-        "target": "zip",
-        "arch": ["x64"]
+        "target": "tar.gz",
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "icon": "public/icon.png",
