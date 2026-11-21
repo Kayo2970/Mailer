@@ -496,11 +496,16 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
   const inner = content.bodyIsHtml
     ? imageTokensToHtml(content.body)
     : `<div style="white-space: pre-wrap;">${imageTokensToHtml(textToHtml(content.body, t.accentColor))}</div>`;
-  const head = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(content.subject)}</title></head>`;
+  // Pin the message to the colours chosen in Settings. Mail apps with a dark mode otherwise
+  // invert light backgrounds: `color-scheme: light only` stops Apple Mail / iOS / Outlook.com,
+  // and a solid gradient layered over each background colour stops Gmail's and Outlook's
+  // automatic inversion, which only rewrites `background-color`.
+  const head = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"><style>:root{color-scheme:light only;supported-color-schemes:light only;}</style><title>${escapeHtml(content.subject)}</title></head>`;
+  const lock = (color: string) => `background-color: ${color}; background-image: linear-gradient(${color}, ${color});`;
   const font = t.fontFamily === 'serif' ? SERIF_FONT : FONT;
 
   if (t.style === 'plain') {
-    return `<!DOCTYPE html><html lang="en">${head}<body style="margin: 0; padding: 16px; font-family: ${font}; font-size: ${t.fontSize}px; line-height: 1.6; color: #1e293b;">${inner}</body></html>`;
+    return `<!DOCTYPE html><html lang="en">${head}<body bgcolor="#ffffff" style="${lock('#ffffff')} margin: 0; padding: 16px; font-family: ${font}; font-size: ${t.fontSize}px; line-height: 1.6; color: #1e293b;">${inner}</body></html>`;
   }
 
   const brand = escapeHtml(t.brandName || settings.fromName || '');
@@ -517,7 +522,7 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
   const banner = t.bannerImageId ? strip(t.bannerImageId, 'top') : '';
   const bandRadius = banner ? '' : 'border-top-left-radius: 12px; border-top-right-radius: 12px;';
   const band = t.logoImageId || brandText || t.tagline
-    ? `<div style="background-color: ${t.headerBackground}; padding: 24px 32px; text-align: ${t.headerAlign}; margin: 0; ${bandRadius}">
+    ? `<div style="${lock(t.headerBackground)} padding: 24px 32px; text-align: ${t.headerAlign}; margin: 0; ${bandRadius}">
         ${t.logoImageId ? imageTag(t.logoImageId, { width: t.logoWidth, alt: brand, style: `display: block; margin: ${logoMargin};` }) : ''}
         ${brandText ? `<div style="display: inline-block; padding: 5px 12px; border: 1px solid ${t.accentColor}; border-radius: 6px;${t.logoImageId ? ' margin-top: 14px;' : ''}"><span style="color: ${t.headerTextColor}; font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">${brandText}</span></div>` : ''}
         ${t.tagline ? `<p style="color: ${t.headerTextColor}; opacity: 0.65; font-size: 12px; margin: 8px 0 0 0; font-weight: 500;">${escapeHtml(t.tagline)}</p>` : ''}
@@ -525,7 +530,7 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
     : '';
   const header = banner || band
     ? `${banner}${band}`
-    : `<div style="background-color: ${t.accentColor}; height: 6px; font-size: 0; line-height: 0; border-top-left-radius: 12px; border-top-right-radius: 12px;">&nbsp;</div>`;
+    : `<div style="${lock(t.accentColor)} height: 6px; font-size: 0; line-height: 0; border-top-left-radius: 12px; border-top-right-radius: 12px;">&nbsp;</div>`;
   const isHeaderMatch = t.footerStyle === 'match_header';
   const effectiveFooterBg = t.footerBackground || (isHeaderMatch ? t.headerBackground : '#f8fafc');
   const effectiveFooterText = t.footerTextColor || (isHeaderMatch ? t.headerTextColor : '#64748b');
@@ -569,7 +574,7 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
     const textMarkup = t.footerText?.trim()
       ? `<div style="font-size: 11px; color: ${effectiveFooterText}; opacity: 0.85; line-height: 1.6; white-space: pre-wrap;">${textToHtml(t.footerText, t.accentColor)}</div>`
       : '';
-    footerBand = `<div style="background-color: ${effectiveFooterBg}; ${borderTop} padding: ${padding}; text-align: ${textAlign};">
+    footerBand = `<div style="${lock(effectiveFooterBg)} ${borderTop} padding: ${padding}; text-align: ${textAlign};">
       ${socialsMarkup}
       ${textMarkup}
     </div>`;
@@ -580,8 +585,8 @@ export function renderEmailHtml(settings: EmailSettings, content: MessageContent
   return `<!DOCTYPE html>
 <html lang="en">
 ${head}
-<body style="background-color: ${t.pageBackground}; margin: 0; padding: 0 12px 24px 12px; font-family: ${font}; color: #1e293b;">
-  <div style="max-width: ${t.contentWidth}px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+<body bgcolor="${t.pageBackground}" style="${lock(t.pageBackground)} margin: 0; padding: 0 12px 24px 12px; font-family: ${font}; color: #1e293b;">
+  <div bgcolor="#ffffff" style="max-width: ${t.contentWidth}px; margin: 0 auto; ${lock('#ffffff')} border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
     ${header}
     <div style="padding: 28px 32px; color: #334155; font-size: ${t.fontSize}px; line-height: 1.65;">
       ${inner}
